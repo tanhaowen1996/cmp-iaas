@@ -27,4 +27,4 @@ deploy-dev:
   script:
   - source /data/deploy/ci.sh
   - deploy_dev
-  when: manual
+  #when: manual
