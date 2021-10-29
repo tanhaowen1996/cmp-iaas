@@ -1,0 +1,30 @@
+image: registry.yonghui.cn/ycloud/all-ci:1.0
+
+before_script:
+- cd $CI_PROJECT_DIR
+
+stages:
+- build
+- package
+
+golang-build:
+  stage: build
+  script:
+  - source /data/deploy/ci.sh
+  - cd djapp
+  - docker_build_py_v1
+
+package:
+  image: registry.yonghui.cn/ycloud/helm3-ci:1.6
+  stage: package
+  script:
+  - source /data/deploy/ci.sh
+  - helm_push
+  when: manual
+
+deploy-dev:
+  stage: package
+  script:
+  - source /data/deploy/ci.sh
+  - deploy_dev
+  when: manual
