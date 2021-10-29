@@ -1,0 +1,10 @@
+django<3.3
+djangorestframework
+drf_yasg
+gunicorn
+httptools
+psycopg2
+python-dotenv
+requests
+uvicorn
+uvloop
