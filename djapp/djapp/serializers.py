@@ -11,6 +11,7 @@ class NetworkSerializer(serializers.ModelSerializer):
             'name',
             'cidr',
             'total_interface',
+            'category',
             'is_shared',
             'created',
             'modified'

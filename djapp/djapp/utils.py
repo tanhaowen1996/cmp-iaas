@@ -4,4 +4,9 @@ import openstack
 
 openstack.enable_logging(debug=settings.DEBUG)
 
-os_conn = openstack.connect()
+
+class OpenstackMixin:
+
+    @staticmethod
+    def get_conn():
+        return openstack.connect()

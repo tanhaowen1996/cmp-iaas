@@ -2,11 +2,11 @@ from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from netfields import CidrAddressField
-from .utils import os_conn
+from .utils import OpenstackMixin
 import uuid
 
 
-class Network(models.Model):
+class Network(models.Model, OpenstackMixin):
     IP_VERSION_V4 = 4
     CATEGORY_CLUSTER = 'cluster'
     CATEGORY_CONTAINER = 'container'
@@ -45,6 +45,7 @@ class Network(models.Model):
 
     @classmethod
     def create_os_network_subnet(cls, name, cidr, **kwargs):
+        os_conn = cls.get_conn()
         network = os_conn.network.create_network(
             name=name
         )
@@ -58,9 +59,6 @@ class Network(models.Model):
         return network.id, subnet.id
 
     def destory_os_network_subnet(self):
-        network = os_conn.network.find_network(self.name)
-
-        for subnet in network.subnet_ids:
-            os_conn.network.delete_subnet(subnet, ignore_missing=False)
-
-        os_conn.network.delete_network(network, ignore_missing=False)
+        os_conn = self.get_conn()
+        os_conn.network.delete_subnet(self.subnet_id, ignore_missing=False)
+        os_conn.network.delete_network(self.network_id, ignore_missing=False)
