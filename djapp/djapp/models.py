@@ -23,16 +23,21 @@ class Network(models.Model, OpenstackMixin):
     os_subnet_id = models.UUIDField(
         editable=False)
     name = models.CharField(
-        max_length=255,
+        max_length=20,
         unique=True,
         verbose_name=_('network name'))
     cidr = CidrAddressField(
         unique=True)
     total_interface = models.PositiveIntegerField()
+    vlan_id = models.PositiveSmallIntegerField(
+        unique=True)
     category = models.CharField(
         choices=CATEGORY_CHOICES,
-        max_length=255)
+        max_length=20)
     is_shared = models.BooleanField()
+    description = models.CharField(
+        blank=True,
+        max_length=50)
     created = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
@@ -58,7 +63,14 @@ class Network(models.Model, OpenstackMixin):
         )
         return network.id, subnet.id
 
-    def destory_os_network_subnet(self):
+    def update_os_network_subnet(self, name='', description='', **kwargs):
         os_conn = self.get_conn()
-        os_conn.network.delete_subnet(self.subnet_id, ignore_missing=False)
-        os_conn.network.delete_network(self.network_id, ignore_missing=False)
+        os_conn.network.update_subnet(
+            self.os_subnet_id, name=name, description=description)
+        os_conn.network.update_network(
+            self.os_network_id, name=name, description=description)
+
+    def destroy_os_network_subnet(self):
+        os_conn = self.get_conn()
+        os_conn.network.delete_subnet(self.os_subnet_id, ignore_missing=False)
+        os_conn.network.delete_network(self.os_network_id, ignore_missing=False)

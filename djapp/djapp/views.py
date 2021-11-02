@@ -1,6 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .serializers import NetworkSerializer
+from .serializers import NetworkSerializer, UpdateNetworkSerializer
 from .models import Network
 import logging
 import openstack
@@ -19,6 +19,9 @@ class NetworkViewSet(viewsets.ModelViewSet):
 
     retrieve:
     Get instance
+
+    update:
+    Update instance (fields: name, description)
 
     destory
     drop instance
@@ -39,7 +42,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            total_interface = len(list(data['cidr'].hosts()))
+            total_interface = data['cidr'].num_addresses - 2
             serializer.save(
                 os_network_id=network_id,
                 os_subnet_id=subnet_id,
@@ -48,10 +51,25 @@ class NetworkViewSet(viewsets.ModelViewSet):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    def destory(self, request, *args, **kwargs):
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = UpdateNetworkSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance.update_os_network_subnet(**serializer.validated_data)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try updating openstack network {instance.id}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save()
+            return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
-            instance.destory_os_network_subnet()
+            instance.destroy_os_network_subnet()
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try destorying openstack network {instance.name}: {exc}")
             return Response({
@@ -59,5 +77,4 @@ class NetworkViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             self.perform_destroy(instance)
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
