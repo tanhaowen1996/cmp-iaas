@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .serializers import NetworkSerializer, UpdateNetworkSerializer
+from .filters import NetworkFilter
 from .models import Network
 import logging
 import openstack
@@ -26,6 +27,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
     destory
     drop instance
     """
+    filterset_class = NetworkFilter
     queryset = Network.objects.all()
     serializer_class = NetworkSerializer
 
