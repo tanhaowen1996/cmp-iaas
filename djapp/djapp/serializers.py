@@ -16,5 +16,6 @@ class NetworkSerializer(serializers.ModelSerializer):
             'modified'
         )
         read_only_fields = (
-            'id', 'created', 'modified',
+            'id', 'total_interface',
+            'created', 'modified',
         )

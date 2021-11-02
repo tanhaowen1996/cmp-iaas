@@ -1,10 +1,13 @@
 from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from netfields import CidrAddressField
+from .utils import os_conn
 import uuid
 
 
 class Network(models.Model):
+    IP_VERSION_V4 = 4
     CATEGORY_CLUSTER = 'cluster'
     CATEGORY_CONTAINER = 'container'
     CATEGORY_CHOICES = (
@@ -15,14 +18,17 @@ class Network(models.Model):
         editable=False,
         primary_key=True,
         default=uuid.uuid1)
+    os_network_id = models.UUIDField(
+        editable=False)
+    os_subnet_id = models.UUIDField(
+        editable=False)
     name = models.CharField(
         max_length=255,
         unique=True,
         verbose_name=_('network name'))
-    cidr = models.CharField(
-        unique=True,
-        max_length=255)
-    total_interface = models.PositiveSmallIntegerField()
+    cidr = CidrAddressField(
+        unique=True)
+    total_interface = models.PositiveIntegerField()
     category = models.CharField(
         choices=CATEGORY_CHOICES,
         max_length=255)
@@ -36,3 +42,25 @@ class Network(models.Model):
 
     class Meta:
         indexes = (BrinIndex(fields=['modified', 'created']),)
+
+    @classmethod
+    def create_os_network_subnet(cls, name, cidr, **kwargs):
+        network = os_conn.network.create_network(
+            name=name
+        )
+
+        subnet = os_conn.network.create_subnet(
+            name=name,
+            network_id=network.id,
+            ip_version=cls.IP_VERSION_V4,
+            cidr=cidr
+        )
+        return network.id, subnet.id
+
+    def destory_os_network_subnet(self):
+        network = os_conn.network.find_network(self.name)
+
+        for subnet in network.subnet_ids:
+            os_conn.network.delete_subnet(subnet, ignore_missing=False)
+
+        os_conn.network.delete_network(network, ignore_missing=False)
