@@ -1,8 +1,11 @@
-from rest_framework import viewsets, status
+from rest_framework import mixins, viewsets, status
 from rest_framework.response import Response
-from .serializers import NetworkSerializer, UpdateNetworkSerializer
-from .filters import NetworkFilter
-from .models import Network
+from .serializers import (
+    NetworkSerializer, UpdateNetworkSerializer,
+    PortSerializer
+)
+from .filters import NetworkFilter, PortFilter
+from .models import Network, Port
 import logging
 import openstack
 
@@ -80,3 +83,14 @@ class NetworkViewSet(viewsets.ModelViewSet):
         else:
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PortViewSet(mixins.ListModelMixin,
+                  viewsets.GenericViewSet):
+    """
+    list:
+    Get list
+    """
+    filterset_class = PortFilter
+    queryset = Port.objects.all()
+    serializer_class = PortSerializer

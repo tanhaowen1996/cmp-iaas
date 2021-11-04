@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Network
+from .models import Network, Port
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -42,4 +42,22 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
         fields = (
             'name',
             'description',
+        )
+
+
+class PortSerializer(serializers.ModelSerializer):
+    ip_address = serializers.CharField(source='ip_address.ip')
+    name = serializers.CharField(source='ip_address.ip')
+    network_name = serializers.CharField(source='network.name')
+
+    class Meta:
+        model = Port
+        fields = (
+            'id',
+            'name',
+            'network_id',
+            'network_name',
+            'ip_address',
+            'mac_address',
+            'is_external'
         )

@@ -5,7 +5,8 @@ from django_filters import (
     OrderingFilter,
     TypedChoiceFilter)
 from distutils.util import strtobool
-from .models import Network
+from netfields import InetAddressField
+from .models import Network, Port
 
 
 class NetworkFilter(FilterSet):
@@ -27,3 +28,19 @@ class NetworkFilter(FilterSet):
     class Meta:
         model = Network
         fields = ('name',)
+
+
+class PortFilter(FilterSet):
+    name = CharFilter(field_name='ip_address', lookup_expr='icontains')
+
+    class Meta:
+        model = Port
+        fields = ('network_id', 'ip_address')
+        filter_overrides = {
+            InetAddressField: {
+                'filter_class': CharFilter,
+                'extra': lambda f: {
+                    'lookup_expr': 'icontains',
+                },
+            },
+        }
