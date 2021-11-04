@@ -46,9 +46,10 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
 
 
 class PortSerializer(serializers.ModelSerializer):
-    ip_address = serializers.CharField(source='ip_address.ip')
-    name = serializers.CharField(source='ip_address.ip')
-    network_name = serializers.CharField(source='network.name')
+    ip_address = serializers.CharField(allow_null=True)
+    ip = serializers.CharField(source='ip_address.ip', read_only=True)
+    network_id = serializers.UUIDField()
+    network_name = serializers.CharField(source='network.name', read_only=True)
 
     class Meta:
         model = Port
@@ -58,6 +59,17 @@ class PortSerializer(serializers.ModelSerializer):
             'network_id',
             'network_name',
             'ip_address',
+            'ip',
             'mac_address',
             'is_external'
         )
+        read_only_fields = (
+            'id', 'network_name',
+            'mac_address', 'ip'
+        )
+
+    def validate_network_id(self, value):
+        if not Network.objects.filter(id=value).exists():
+            raise serializers.ValidationError(
+                f"Network id: {value} matching query does not exist")
+        return value

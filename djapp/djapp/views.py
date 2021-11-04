@@ -1,4 +1,4 @@
-from rest_framework import mixins, viewsets, status
+from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
@@ -85,12 +85,53 @@ class NetworkViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PortViewSet(mixins.ListModelMixin,
-                  viewsets.GenericViewSet):
+class PortViewSet(viewsets.ModelViewSet):
     """
     list:
     Get list
+
+    create:
+    Create instance
+
+    retrieve:
+    Get instance
+
+    update:
+    Update instance
+
+    destory
+    drop instance
     """
     filterset_class = PortFilter
     queryset = Port.objects.all()
     serializer_class = PortSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            instance = serializer.save()
+        except (
+            openstack.exceptions.BadRequestException,
+            openstack.exceptions.ConflictException
+        ) as exc:
+            logger.error(f"try creating openstack port with {data}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_os_port()
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try destorying openstack port {instance.name}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)

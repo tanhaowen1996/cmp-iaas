@@ -31,7 +31,7 @@ class NetworkFilter(FilterSet):
 
 
 class PortFilter(FilterSet):
-    name = CharFilter(field_name='ip_address', lookup_expr='icontains')
+    name = CharFilter(field_name='name', lookup_expr='icontains')
 
     class Meta:
         model = Port
