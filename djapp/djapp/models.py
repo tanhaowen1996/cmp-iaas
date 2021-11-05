@@ -123,13 +123,17 @@ class Port(models.Model, OpenstackMixin):
         )
         return os_port
 
+    def update_os_port(self):
+        os_conn = self.get_conn()
+        os_conn.network.update_port(self.os_port_id, name=self.name)
+
     def destroy_os_port(self):
         os_conn = self.get_conn()
         os_conn.network.delete_port(self.os_port_id, ignore_missing=False)
 
 
 @receiver(pre_save, sender=Port)
-def create_os_port(sender, instance=None, **kwargs):
+def create_or_update_os_port(sender, instance=None, **kwargs):
     if not instance.created:
         os_port = instance.create_os_port()
         instance.ip_address = os_port.fixed_ips[0]['ip_address']
@@ -137,3 +141,6 @@ def create_os_port(sender, instance=None, **kwargs):
         instance.mac_address = os_port.mac_address
         if not instance.name:
             instance.name = instance.ip_address
+
+    else:
+        instance.update_os_port()

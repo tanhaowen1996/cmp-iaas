@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .fields import IPAddressField
 from .models import Network, Port
 
 
@@ -46,8 +47,7 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
 
 
 class PortSerializer(serializers.ModelSerializer):
-    ip_address = serializers.CharField(allow_null=True)
-    ip = serializers.CharField(source='ip_address.ip', read_only=True)
+    ip_address = IPAddressField(allow_null=True)
     network_id = serializers.UUIDField()
     network_name = serializers.CharField(source='network.name', read_only=True)
 
@@ -59,13 +59,12 @@ class PortSerializer(serializers.ModelSerializer):
             'network_id',
             'network_name',
             'ip_address',
-            'ip',
             'mac_address',
             'is_external'
         )
         read_only_fields = (
             'id', 'network_name',
-            'mac_address', 'ip'
+            'mac_address'
         )
 
     def validate_network_id(self, value):
@@ -73,3 +72,12 @@ class PortSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"Network id: {value} matching query does not exist")
         return value
+
+
+class UpdatePortSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Port
+        fields = (
+            'name',
+        )

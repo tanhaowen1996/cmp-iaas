@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
-    PortSerializer
+    PortSerializer, UpdatePortSerializer
 )
 from .filters import NetworkFilter, PortFilter
 from .models import Network, Port
@@ -11,6 +11,15 @@ import openstack
 
 
 logger = logging.getLogger(__package__)
+
+
+class OSCommonModelMixin:
+    update_serializer_class = None
+
+    def get_serializer_class(self):
+        return {
+            'PUT': self.update_serializer_class
+        }.get(self.request.method, self.serializer_class)
 
 
 class NetworkViewSet(viewsets.ModelViewSet):
@@ -27,7 +36,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
     update:
     Update instance (fields: name, description)
 
-    destory
+    destroy
     drop instance
     """
     filterset_class = NetworkFilter
@@ -76,7 +85,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
         try:
             instance.destroy_os_network_subnet()
         except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try destorying openstack network {instance.name}: {exc}")
+            logger.error(f"try destroying openstack network {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -85,7 +94,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PortViewSet(viewsets.ModelViewSet):
+class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     """
     list:
     Get list
@@ -99,12 +108,13 @@ class PortViewSet(viewsets.ModelViewSet):
     update:
     Update instance
 
-    destory
+    destroy
     drop instance
     """
     filterset_class = PortFilter
     queryset = Port.objects.all()
     serializer_class = PortSerializer
+    update_serializer_class = UpdatePortSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -123,12 +133,30 @@ class PortViewSet(viewsets.ModelViewSet):
         else:
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = UpdatePortSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance = serializer.save()
+        except (
+            openstack.exceptions.BadRequestException,
+            openstack.exceptions.ConflictException
+        ) as exc:
+            logger.error(f"try updating openstack port {instance.id}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_update(serializer)
+            return Response(serializer.data)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
             instance.destroy_os_port()
         except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try destorying openstack port {instance.name}: {exc}")
+            logger.error(f"try destroying openstack port {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
