@@ -28,6 +28,7 @@ DEBUG = bool(int(os.getenv('DEBUG', 0)))
 
 ALLOWED_HOSTS = ['*']
 
+APPEND_SLASH = False
 
 # Application definition
 
@@ -45,11 +46,10 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     'DATE_FORMAT': '%Y-%m-%d',
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'djapp.pagination.PageNumberPagination',
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
-    'PAGE_SIZE': 100
 }
 
 MIDDLEWARE = [

@@ -60,11 +60,14 @@ class PortSerializer(serializers.ModelSerializer):
             'network_name',
             'ip_address',
             'mac_address',
-            'is_external'
+            'is_external',
+            'created',
+            'modified',
         )
         read_only_fields = (
             'id', 'network_name',
-            'mac_address'
+            'mac_address',
+            'created', 'modified',
         )
 
     def validate_network_id(self, value):
