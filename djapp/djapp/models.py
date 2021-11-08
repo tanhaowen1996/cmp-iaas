@@ -144,3 +144,64 @@ def create_or_update_os_port(sender, instance=None, **kwargs):
 
     else:
         instance.update_os_port()
+
+
+class Keypair(models.Model, OpenstackMixin):
+    id = models.UUIDField(
+        editable=False,
+        primary_key=True,
+        default=uuid.uuid1,
+        verbose_name=_('keypair id')
+    )
+    name = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name=_('keypair name'))
+    user_id = models.UUIDField(
+        blank=True
+    )
+    project_id = models.UUIDField(
+        blank=True
+    )
+    fingerprint = models.CharField(
+        max_length=255,
+        blank=True
+    )
+    public_key = models.TextField(
+        blank=True
+    )
+    ssh = 'ssh'
+    x509 = 'x509'
+    type_list = [
+        (ssh, 'ssh'),
+        (x509, 'x509')
+    ]
+    description = models.TextField(
+        blank=True
+    )
+    type = models.CharField(choices=type_list, default=ssh, max_length=255)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('updated time'))
+
+    def __str__(self):
+        return self.id
+
+    class Meta:
+        indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
+
+    @classmethod
+    def create_keypair(cls, key_name, key_pub=None):
+        os_conn = cls.get_conn()
+        if key_pub:
+            ssh_key = os_conn.compute.create_keypair(name=key_name, public_key=key_pub)
+        else:
+            ssh_key = os_conn.compute.create_keypair(name=key_name)
+        return ssh_key
+
+    def destroy_keypair(self):
+        os_conn = self.get_conn()
+        os_conn.compute.delete_keypair(self.name, ignore_missing=False)

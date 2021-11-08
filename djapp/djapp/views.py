@@ -1,11 +1,12 @@
-from rest_framework import viewsets, status
+from rest_framework import mixins, viewsets, status
 from rest_framework.response import Response
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
-    PortSerializer, UpdatePortSerializer
+    PortSerializer, UpdatePortSerializer,
+    KeypairSerializer
 )
 from .filters import NetworkFilter, PortFilter
-from .models import Network, Port
+from .models import Network, Port, Keypair
 import logging
 import openstack
 
@@ -163,3 +164,59 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         else:
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+    serializer_class = KeypairSerializer
+    queryset = Keypair.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            if data.get('public_key'):
+                ssh = Keypair.create_keypair(key_name=data['name'], key_pub=data['public_key'])
+            else:
+                ssh = Keypair.create_keypair(key_name=data['name'])
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try creating openstack keypair {data['name']} with {data['public_key']}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save(
+                name=ssh.name,
+                user_id=ssh.user_id,
+                fingerprint=ssh.fingerprint,
+                public_key=ssh.public_key,
+                type=ssh.type,
+                description=data.get('description'),
+                project_id=ssh.location.project.id,
+            )
+            headers = self.get_success_headers(serializer.data)
+            return Response(ssh.private_key, status=status.HTTP_201_CREATED, headers=headers)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_keypair()
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try destroying openstack ssh key {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            ssh_list = instance.get_keypair_list()
+            return Response(ssh_list)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try get openstack ssh key list filed {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)

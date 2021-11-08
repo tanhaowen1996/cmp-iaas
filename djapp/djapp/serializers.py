@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .fields import IPAddressField
-from .models import Network, Port
+from .models import Network, Port, Keypair
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -83,4 +83,35 @@ class UpdatePortSerializer(serializers.ModelSerializer):
         model = Port
         fields = (
             'name',
+        )
+
+
+class KeypairSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+    name = serializers.CharField(max_length=255),
+    user_id = serializers.UUIDField(required=False),
+    fingerprint = serializers.CharField(required=False),
+    public_key = serializers.FileField(required=False),
+    project_id = serializers.UUIDField(required=False),
+    ssh = 'ssh'
+    x509 = 'x509'
+    type_list = [
+        (ssh, 'ssh'),
+        (x509, 'x509')
+    ]
+    type = serializers.ChoiceField(choices=type_list, default=ssh),
+    description = serializers.CharField(required=False)
+
+    class Meta:
+        model = Keypair
+        fields = (
+            'id',
+            'name',
+            'user_id',
+            'fingerprint',
+            'public_key',
+            'type',
+            'description',
+            'created_at',
+            'updated_at'
         )

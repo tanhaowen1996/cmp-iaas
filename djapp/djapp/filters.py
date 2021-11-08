@@ -6,7 +6,7 @@ from django_filters import (
     TypedChoiceFilter)
 from distutils.util import strtobool
 from netfields import InetAddressField
-from .models import Network, Port
+from .models import Network, Port, Keypair
 
 
 class NetworkFilter(FilterSet):
@@ -44,3 +44,12 @@ class PortFilter(FilterSet):
                 },
             },
         }
+
+
+class KeypairFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
+    fingerprint = CharFilter(field_name='fingerprint', lookup_expr='icontains')
+
+    class Meta:
+        mode = Keypair
+        filter = ('name', 'fingerprint')
