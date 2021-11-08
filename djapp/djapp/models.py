@@ -168,7 +168,7 @@ class Keypair(models.Model, OpenstackMixin):
         blank=True
     )
     public_key = models.TextField(
-        blank=True
+        null=True
     )
     ssh = 'ssh'
     x509 = 'x509'
@@ -177,7 +177,7 @@ class Keypair(models.Model, OpenstackMixin):
         (x509, 'x509')
     ]
     description = models.TextField(
-        blank=True
+        null=True
     )
     type = models.CharField(choices=type_list, default=ssh, max_length=255)
     created_at = models.DateTimeField(
