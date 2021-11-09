@@ -152,4 +152,36 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Extra
 
+OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
+
+OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://127.0.0.1:35357/v3')
+
+OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
+
+OS_INTERFACE = os.getenv('OS_INTERFACE', 'internal')
+
+OS_ENDPOINT_TYPE = os.getenv('OS_ENDPOINT_TYPE', 'internalURL')
+
+OS_IDENTITY_API_VERSION = int(os.getenv('OS_IDENTITY_API_VERSION', 3))
+
+OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
+
+ACCOUNT_INFO_KEY = os.getenv('ACCOUNT_INFO_KEY', 'Account-Info')
+
 SWAGGER = bool(int(os.getenv('SWAGGER', 0)))
+
+if SWAGGER:
+    SWAGGER_SETTINGS = {
+        'SECURITY_DEFINITIONS': {
+            ACCOUNT_INFO_KEY: {
+                'type': 'apiKey',
+                'name': ACCOUNT_INFO_KEY.lower(),
+                'in': 'header'
+            },
+            OS_TOKEN_KEY: {
+                'type': 'apiKey',
+                'name': OS_TOKEN_KEY.lower(),
+                'in': 'header'
+            }
+        },
+    }
