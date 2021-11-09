@@ -7,12 +7,15 @@ stages:
 - build
 - package
 
-golang-build:
+python-build:
   stage: build
   script:
   - source /data/deploy/ci.sh
   - cd djapp
   - docker_build_py_v1
+  only:
+  - master
+  - dev
 
 package:
   image: registry.yonghui.cn/ycloud/helm3-ci:1.6
@@ -21,10 +24,16 @@ package:
   - source /data/deploy/ci.sh
   - helm_push
   when: manual
+  only:
+  - master
+  - dev
 
 deploy-dev:
   stage: package
   script:
   - source /data/deploy/ci.sh
   - deploy_dev
+  only:
+  - master
+  - dev
   #when: manual
