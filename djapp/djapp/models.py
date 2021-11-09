@@ -50,10 +50,10 @@ class Network(models.Model, OpenstackMixin):
 
     class Meta:
         indexes = (BrinIndex(fields=['modified', 'created']),)
+        ordering = ('-modified',)
 
     @classmethod
-    def create_os_network_subnet(cls, name, cidr, **kwargs):
-        os_conn = cls.get_conn()
+    def create_os_network_subnet(cls, os_conn, name, cidr, **kwargs):
         network = os_conn.network.create_network(
             name=name
         )
@@ -62,19 +62,21 @@ class Network(models.Model, OpenstackMixin):
             name=name,
             network_id=network.id,
             ip_version=cls.IP_VERSION_V4,
-            cidr=cidr
+            cidr=str(cidr)  # type IPv4Network is not JSON serializable
         )
-        return network.id, subnet.id
+        return {
+            'os_network_id': network.id,
+            'os_subnet_id': subnet.id,
+            'total_interface': cidr.num_addresses - 2,
+        }
 
-    def update_os_network_subnet(self, name='', description='', **kwargs):
-        os_conn = self.get_conn()
+    def update_os_network_subnet(self, os_conn, name='', description='', **kwargs):
         os_conn.network.update_subnet(
             self.os_subnet_id, name=name, description=description)
         os_conn.network.update_network(
             self.os_network_id, name=name, description=description)
 
-    def destroy_os_network_subnet(self):
-        os_conn = self.get_conn()
+    def destroy_os_network_subnet(self, os_conn):
         os_conn.network.delete_subnet(self.os_subnet_id, ignore_missing=False)
         os_conn.network.delete_network(self.os_network_id, ignore_missing=False)
 

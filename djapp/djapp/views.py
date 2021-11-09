@@ -1,5 +1,6 @@
-from rest_framework import mixins, viewsets, status
+from rest_framework import viewsets, status
 from rest_framework.response import Response
+from .authentication import OSAuthentication
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
@@ -23,7 +24,7 @@ class OSCommonModelMixin:
         }.get(self.request.method, self.serializer_class)
 
 
-class NetworkViewSet(viewsets.ModelViewSet):
+class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     """
     list:
     Get list
@@ -40,38 +41,36 @@ class NetworkViewSet(viewsets.ModelViewSet):
     destroy
     drop instance
     """
+    authentication_classes = (OSAuthentication,)
     filterset_class = NetworkFilter
     queryset = Network.objects.all()
     serializer_class = NetworkSerializer
+    update_serializer_class = UpdateNetworkSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            network_id, subnet_id = Network.create_os_network_subnet(
-                data['name'], str(data['cidr']))
+            os_obj_info = Network.create_os_network_subnet(
+                request.os_conn,
+                data['name'], data['cidr'])
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try creating openstack network {data['name']} with {data['cidr']}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            total_interface = data['cidr'].num_addresses - 2
-            serializer.save(
-                os_network_id=network_id,
-                os_subnet_id=subnet_id,
-                total_interface=total_interface
-            )
+            serializer.save(**os_obj_info)
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = UpdateNetworkSerializer(instance, data=request.data)
+        serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            instance.update_os_network_subnet(**serializer.validated_data)
+            instance.update_os_network_subnet(request.os_conn, **serializer.validated_data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try updating openstack network {instance.id}: {exc}")
             return Response({
@@ -84,7 +83,7 @@ class NetworkViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
-            instance.destroy_os_network_subnet()
+            instance.destroy_os_network_subnet(request.os_conn)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try destroying openstack network {instance.name}: {exc}")
             return Response({

@@ -31,7 +31,7 @@ class NetworkSerializer(serializers.ModelSerializer):
 
     def validate_vlan_id(self, value):
         MIN, MAX = 1, 4094
-        if not MIN < value < MAX:
+        if not MIN <= value <= MAX:
             raise serializers.ValidationError(f"value must in range [{MIN}, {MAX}]")
         return value
 
