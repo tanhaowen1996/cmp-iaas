@@ -39,7 +39,7 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     update:
     Update instance (fields: name, description)
 
-    destroy
+    destroy:
     drop instance
     """
     authentication_classes = (OSAuthentication,)
@@ -109,9 +109,10 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     update:
     Update instance
 
-    destroy
+    destroy:
     drop instance
     """
+    authentication_classes = (OSAuthentication,)
     filterset_class = PortFilter
     queryset = Port.objects.all()
     serializer_class = PortSerializer
@@ -120,26 +121,27 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
         try:
-            instance = serializer.save()
+            instance = serializer.Meta.model(**serializer.validated_data)
+            instance.create_os_port(request.os_conn)
         except (
             openstack.exceptions.BadRequestException,
             openstack.exceptions.ConflictException
         ) as exc:
-            logger.error(f"try creating openstack port with {data}: {exc}")
+            logger.error(f"try creating openstack port with {serializer.validated_data}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            instance.save()
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        serializer = UpdatePortSerializer(instance, data=request.data)
+        serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            instance = serializer.save()
+            instance.update_os_port(request.os_conn, **serializer.validated_data)
         except (
             openstack.exceptions.BadRequestException,
             openstack.exceptions.ConflictException
@@ -149,13 +151,13 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            self.perform_update(serializer)
+            instance.save()
             return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
-            instance.destroy_os_port()
+            instance.destroy_os_port(request.os_conn)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try destroying openstack port {instance.name}: {exc}")
             return Response({

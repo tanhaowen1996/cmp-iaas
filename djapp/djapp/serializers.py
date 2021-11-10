@@ -47,7 +47,7 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
 
 
 class PortSerializer(serializers.ModelSerializer):
-    ip_address = IPAddressField(allow_null=True)
+    ip_address = IPAddressField(allow_null=True, protocol='IPv4')
     network_id = serializers.UUIDField()
     network_name = serializers.CharField(source='network.name', read_only=True)
 
