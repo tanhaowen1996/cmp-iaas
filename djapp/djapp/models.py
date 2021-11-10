@@ -207,3 +207,85 @@ class Keypair(models.Model, OpenstackMixin):
     def destroy_keypair(self):
         os_conn = self.get_conn()
         os_conn.compute.delete_keypair(self.name, ignore_missing=False)
+
+
+class Image(models.Model, OpenstackMixin):
+    os_type_t = (
+        ('windows', 'windows'),
+        ('ubuntu', 'ubuntu'),
+        ('centos', 'centos'),
+    )
+    visibility_t = (
+        ('public', 'public'),
+        ('private', 'private'),
+        ('shared', 'shared'),
+        ('community', 'community'))
+
+    id = models.UUIDField(
+        editable=False,
+        primary_key=True,
+        default=uuid.uuid1,
+        verbose_name=_('image id'))
+
+    owner = models.UUIDField(
+        default=uuid.uuid1,
+        verbose_name=_('image id'))
+
+    name = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_('image name'))
+    status = (
+        ('active','active'),
+        ('queued','queued'),
+        ('saving','saving'),
+    )
+
+    size =  models.IntegerField(null=True)
+
+    status = models.CharField(max_length=45,choices=status,null=True)
+
+    disk_format = models.CharField( max_length=20,null=True)
+
+    container_format = models.CharField( max_length=45,null=True)
+
+    checksum = models.CharField(max_length=255,null=True)
+
+    min_disk = models.IntegerField(null=True)
+
+    min_ram = models.IntegerField(null=True)
+
+    protected = models.BooleanField(default=True)
+
+    virtual_size = models.IntegerField(null=True)
+    visibility = models.CharField(
+        choices=visibility_t,max_length=45,null=True)
+
+    os_type = models.CharField(max_length=45,choices=os_type_t,default="vmdk")
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('updated time'))
+
+    description = models.TextField(
+        null=True
+    )
+    user_id = models.UUIDField(
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+        indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
+
+    def update_image(self, name='', description=''):
+        os_conn = self.get_conn()
+        os_conn.image.update_image(str(self.id), name=name, description=description)
+
+    def destroy_image(self):
+        os_conn = self.get_conn()
+        os_conn.image.delete_image(self.id, ignore_missing=False)
+

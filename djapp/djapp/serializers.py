@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .fields import IPAddressField
-from .models import Network, Port, Keypair
+from .models import Network, Port, Keypair, Image
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -115,3 +115,8 @@ class KeypairSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         )
+
+class ImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = "__all__"

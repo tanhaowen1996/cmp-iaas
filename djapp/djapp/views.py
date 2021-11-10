@@ -4,13 +4,14 @@ from .authentication import OSAuthentication
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
-    KeypairSerializer
+    KeypairSerializer, ImageSerializer
 )
-from .filters import NetworkFilter, PortFilter
-from .models import Network, Port, Keypair
+from .filters import NetworkFilter, PortFilter, ImageFilter
+from .models import Network, Port, Keypair, Image
 import logging
 import openstack
 
+from .utils import sess_image
 
 logger = logging.getLogger(__package__)
 
@@ -219,3 +220,89 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ImageViewSet(viewsets.ModelViewSet):
+
+    filterset_class = ImageFilter
+    queryset = Image.objects.all()
+    serializer_class = ImageSerializer
+
+    def create(self, request, *args, **kwargs):
+        file = request.data['file']
+        del request.data['file']
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            sess = sess_image()
+            image = sess.images.create(**data)
+            im_id = image['id']
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try creating openstack image {data}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save(
+                name = image.name,
+                id = image.id,
+                owner = image.owner,
+                size = image.size,
+                status =image.status,
+                disk_format = image.disk_format,
+                container_format = image.container_format,
+                checksum = image.checksum,
+                min_disk = image.min_disk,
+                min_ram = image.min_ram ,
+                protected = image.protected,
+                virtual_size = image.virtual_size,
+                visibility = image.visibility,
+                os_type = image.os_type,
+                created_at = image.created_at,
+                updated_at = image.updated_at,
+                description = image.description,
+                # user_id = "admin"
+            )
+            sess.images.upload(im_id, file)
+            info = sess.images.get(im_id)
+            serializer.save(
+                size=info.size,
+                status=info.status,
+                checksum=info.checksum,
+                min_disk=info.min_disk,
+                min_ram=info.min_ram,
+                virtual_size=info.virtual_size,
+                visibility=info.visibility,
+                updated_at=info.updated_at,
+            )
+            return Response({"msg":"The mirror image is being uploaded"})
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = ImageSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance.update_image(**serializer.validated_data)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try updating openstack image {instance.id}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save()
+            return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_image()
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try destroying openstack port {instance.name}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+

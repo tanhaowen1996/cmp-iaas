@@ -6,7 +6,7 @@ from django_filters import (
     TypedChoiceFilter)
 from distutils.util import strtobool
 from netfields import InetAddressField
-from .models import Network, Port, Keypair
+from .models import Network, Port, Keypair, Image
 
 
 class NetworkFilter(FilterSet):
@@ -53,3 +53,14 @@ class KeypairFilter(FilterSet):
     class Meta:
         mode = Keypair
         filter = ('name', 'fingerprint')
+
+class ImageFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
+    visibility = CharFilter(field_name='visibility', lookup_expr='icontains')
+    os_type = CharFilter(field_name='os_type', lookup_expr='icontains')
+    owner = CharFilter(field_name='owner', lookup_expr='icontains')
+    status = CharFilter(field_name='status', lookup_expr='icontains')
+
+    class Meta:
+        mode = Image
+        filter = ('name','visibility','os_type','owner','status' )

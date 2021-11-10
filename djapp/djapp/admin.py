@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Network, Port, Keypair
+from .models import Network, Port, Keypair, Image
 
 
 @admin.register(Network)
@@ -20,3 +20,13 @@ class KeypairAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'user_id',
                     'fingerprint', 'public_key',
                     'type_list', 'public_key')
+
+@admin.register(Image)
+class KeypairAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'owner',
+                    'size', 'status',
+                    'disk_format', 'container_format',
+                    'checksum', 'min_disk',
+                    'min_ram', 'protected', 'virtual_size',
+                    'visibility', 'os_type', 'created_at',
+                    'updated_at','description','user_id')

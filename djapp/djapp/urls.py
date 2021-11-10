@@ -18,13 +18,13 @@ from django.conf.urls import re_path
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import SimpleRouter
-from .views import NetworkViewSet, PortViewSet, KeypairViewSet
-
+from .views import NetworkViewSet, PortViewSet, KeypairViewSet, ImageViewSet
 
 router = SimpleRouter(trailing_slash=False)
 router.register(r'network', NetworkViewSet, basename='network')
 router.register(r'port', PortViewSet, basename='port')
 router.register(r'keypair', KeypairViewSet, basename='keypair')
+router.register(r'image', ImageViewSet, basename='image')
 
 
 urlpatterns = [
