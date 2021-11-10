@@ -46,7 +46,8 @@ class OSAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed(msg)
         else:
             user, created = User.objects.update_or_create(
-                id=account_info['id'], username=account_info['loginName'], defaults={
+                id=account_info['id'], defaults={
+                    'username': account_info['loginName'],
                     'first_name': account_info['accountName'],
                     'is_staff': bool(account_info['isPlatform'])
                 })

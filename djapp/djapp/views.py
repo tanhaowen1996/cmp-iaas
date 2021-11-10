@@ -51,20 +51,17 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
         try:
-            os_obj_info = Network.create_os_network_subnet(
-                request.os_conn,
-                data['name'], data['cidr'])
+            instance = serializer.Meta.model(**serializer.validated_data)
+            instance.create_os_network_subnet(request.os_conn)
         except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try creating openstack network {data['name']} with {data['cidr']}: {exc}")
+            logger.error(f"try creating openstack network {serializer.validated_data}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            serializer.save(**os_obj_info)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            instance.save()
+            return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

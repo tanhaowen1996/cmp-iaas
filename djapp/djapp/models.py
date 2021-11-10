@@ -50,23 +50,22 @@ class Network(models.Model, OpenstackMixin):
         indexes = (BrinIndex(fields=['modified', 'created']),)
         ordering = ('-modified',)
 
-    @classmethod
-    def create_os_network_subnet(cls, os_conn, name, cidr, **kwargs):
-        network = os_conn.network.create_network(
-            name=name
-        )
+    def __str__(self):
+        return self.name
 
-        subnet = os_conn.network.create_subnet(
-            name=name,
-            network_id=network.id,
-            ip_version=cls.IP_VERSION_V4,
-            cidr=str(cidr)  # type IPv4Network is not JSON serializable
+    def create_os_network_subnet(self, os_conn):
+        network = os_conn.network.create_network(
+            name=self.name
         )
-        return {
-            'os_network_id': network.id,
-            'os_subnet_id': subnet.id,
-            'total_interface': cidr.num_addresses - 2,
-        }
+        subnet = os_conn.network.create_subnet(
+            name=self.name,
+            network_id=network.id,
+            ip_version=self.IP_VERSION_V4,
+            cidr=str(self.cidr)  # type IPv4Network is not JSON serializable
+        )
+        self.id = self.os_network_id = network.id
+        self.os_subnet_id = subnet.id
+        self.total_interface = self.cidr.num_addresses - 2
 
     def update_os_network_subnet(self, os_conn, name='', description='', **kwargs):
         os_conn.network.update_subnet(
@@ -110,6 +109,9 @@ class Port(models.Model, OpenstackMixin):
     class Meta:
         indexes = (BrinIndex(fields=['modified', 'created']),)
         ordering = ('-modified',)
+
+    def __str__(self):
+        return self.name
 
     def create_os_port(self, os_conn):
         fixed_ip = {'subnet_id': self.network.os_subnet_id}
