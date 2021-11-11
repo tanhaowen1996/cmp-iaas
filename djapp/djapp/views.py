@@ -1,13 +1,15 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from .authentication import OSAuthentication
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
-    KeypairSerializer, ImageSerializer
+    KeypairSerializer, ImageSerializer,
+    VolumeSerializer, UpdateVolumeSerializer,
 )
 from .filters import NetworkFilter, PortFilter, ImageFilter
-from .models import Network, Port, Keypair, Image
+from .models import Network, Port, Keypair, Image, Volume
 import logging
 import openstack
 
@@ -168,6 +170,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     serializer_class = KeypairSerializer
     queryset = Keypair.objects.all()
+    authentication_classes = (OSAuthentication,)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -175,9 +178,14 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         try:
             if data.get('public_key'):
-                ssh = Keypair.create_keypair(key_name=data['name'], key_pub=data['public_key'])
+                ssh = Keypair.create_keypair(
+                    request.os_conn,
+                    key_name=data['name'],
+                    key_pub=data['public_key'])
             else:
-                ssh = Keypair.create_keypair(key_name=data['name'])
+                ssh = Keypair.create_keypair(
+                    request.os_conn,
+                    key_name=data['name'])
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try creating openstack keypair {data['name']} with {data['public_key']}: {exc}")
             return Response({
@@ -186,12 +194,13 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         else:
             serializer.save(
                 name=ssh.name,
-                user_id=ssh.user_id,
                 fingerprint=ssh.fingerprint,
                 public_key=ssh.public_key,
                 type=ssh.type,
                 description=data.get('description'),
                 project_id=ssh.location.project.id,
+                user_name=request.user,
+                user_id=request.user.id
             )
             headers = self.get_success_headers(serializer.data)
             return Response(ssh.private_key, status=status.HTTP_201_CREATED, headers=headers)
@@ -199,7 +208,7 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
-            instance.destroy_keypair()
+            instance.destroy_keypair(request.os_conn)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try destroying openstack ssh key {instance.name}:{exc}")
             return Response({
@@ -209,20 +218,8 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def get(self, request, *args, **kwargs):
-        instance = self.get_object()
-        try:
-            ssh_list = instance.get_keypair_list()
-            return Response(ssh_list)
-        except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try get openstack ssh key list filed {instance.name}:{exc}")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ImageViewSet(viewsets.ModelViewSet):
-
     filterset_class = ImageFilter
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
@@ -305,3 +302,167 @@ class ImageViewSet(viewsets.ModelViewSet):
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+    authentication_classes = (OSAuthentication,)
+    serializer_class = VolumeSerializer
+    queryset = Volume.objects.all()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            volume = Volume.create_volume(
+                request.os_conn,
+                name=data['name'],
+                size=data['size'],
+                volume_type=data['volume_type'])
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try create openstack volume {data['name']}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save(
+                id=volume.id,
+                name=volume.name,
+                description=volume.description,
+                project_id=volume.location.project.id,
+                user_id=request.user.id,
+                is_bootable=volume.is_bootable,
+                volume_type=volume.volume_type,
+                status=volume.status,
+                attachments=volume.attachments,
+                cluster_name=volume.host,
+                user_name=request.user
+            )
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_volume(request.os_conn)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try destroying openstack volume {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = UpdateVolumeSerializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance.update_volume(request.os_conn, **serializer.validated_data)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try updating openstack network {instance.id}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer.save()
+            return Response(serializer.data)
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            volume = instance.get_volume(request.os_conn)
+            serializer = UpdateVolumeSerializer(instance, data=volume)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                cluster_name=volume.host
+            )
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        try:
+            for instance in page:
+                volume = instance.get_volume(request.os_conn)
+                if instance.status == volume.status:
+                    continue
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                )
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error("try get openstack ssh key list filed")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def attached(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            instance.attached_volume(request.os_conn, data['server_id'])
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try attached openstack volume {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            volume = instance.get_volume(request.os_conn)
+            server = instance.get_server(request.os_conn, data['server_id'])
+            serializer = VolumeSerializer(instance, data=volume)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                status=volume.status,
+                attachments=volume.attachments,
+                device=volume.attachments[0].get('device'),
+                server_name=server.name,
+                server_id=data['server_id'],
+            )
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def detached(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            instance.detached_volume(request.os_conn, data['server_id'])
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try detached openstack volume {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            volume = instance.get_volume(request.os_conn)
+            serializer = VolumeSerializer(instance, data=volume)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                status=volume.status,
+                attachments=volume.attachments,
+                device=None,
+                server_name=None,
+                server_id=None,
+            )
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
