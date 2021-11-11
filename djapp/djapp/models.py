@@ -150,8 +150,13 @@ class Keypair(models.Model, OpenstackMixin):
         max_length=255,
         unique=True,
         verbose_name=_('keypair name'))
-    user_id = models.UUIDField(
-        blank=True
+    user_id = models.CharField(
+        blank=True,
+        max_length=255
+    )
+    user_name = models.CharField(
+        null=True,
+        max_length=255
     )
     project_id = models.UUIDField(
         blank=True
@@ -187,16 +192,14 @@ class Keypair(models.Model, OpenstackMixin):
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
 
     @classmethod
-    def create_keypair(cls, key_name, key_pub=None):
-        os_conn = cls.get_conn()
+    def create_keypair(cls, os_conn, key_name, key_pub=None):
         if key_pub:
             ssh_key = os_conn.compute.create_keypair(name=key_name, public_key=key_pub)
         else:
             ssh_key = os_conn.compute.create_keypair(name=key_name)
         return ssh_key
 
-    def destroy_keypair(self):
-        os_conn = self.get_conn()
+    def destroy_keypair(self, os_conn):
         os_conn.compute.delete_keypair(self.name, ignore_missing=False)
 
 
@@ -280,3 +283,139 @@ class Image(models.Model, OpenstackMixin):
         os_conn = self.get_conn()
         os_conn.image.delete_image(self.id, ignore_missing=False)
 
+
+class Volume(models.Model, OpenstackMixin):
+    id = models.UUIDField(
+        primary_key=True
+    )
+    name = models.CharField(
+        max_length=255,
+        null=True
+    )
+    description = models.TextField(
+        null=True,
+        max_length=255
+    )
+    project_id = models.UUIDField(
+        null=True
+    )
+    user_id = models.CharField(
+        null=True,
+        max_length=255
+    )
+    user_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    volume_used = models.FloatField(
+        null=True,
+        default=0
+    )
+    is_bootable = models.BooleanField(
+        null=True
+    )
+    volume_type = models.CharField(
+        null=True,
+        max_length=255,
+        default='__DEFAULT__'
+    )
+    size = models.IntegerField(
+        null=True
+    )
+    device = models.CharField(
+        null=True,
+        max_length=255
+    )
+    status = models.CharField(
+        null=True,
+        max_length=255
+    )
+    attach_status = models.CharField(
+        null=True,
+        max_length=255,
+        default="detached"
+    )
+    attachments = models.JSONField(
+        null=True
+    )
+    cluster_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    server_id = models.UUIDField(
+        null=True
+    )
+    server_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('updated time'))
+
+    class Meta:
+        indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
+
+    def get_volume(self, os_conn):
+        volume = os_conn.volume.get_volume(self.id)
+        return volume
+
+    def get_server(self, os_conn, server_id):
+        server = os_conn.compute.get_server(server_id)
+        return server
+
+    def get_volume_list_status(self):
+        os_conn = self.get_conn()
+        volumes = os_conn.volume.list_volumes()
+        return volumes
+
+    @classmethod
+    def create_volume(cls, os_conn, size, name=None, volume_type=None):
+        volume = os_conn.volume.create_volume(size=size, name=name, volume_type=volume_type)
+        return volume
+
+    def destroy_volume(self, os_conn):
+        os_conn.volume.delete_volume(self.id, ignore_missing=False)
+
+    def update_volume(self, os_conn, name):
+        update_volume = os_conn.update_volume(self.id, name=name)
+        return update_volume
+
+    def attached_volume(self, os_conn, server_id):
+        server = os_conn.compute.get_server(server_id)
+        volume = os_conn.get_volume(self.id)
+        attached = os_conn.attach_volume(server=server, volume=volume)
+        return attached
+
+    def detached_volume(self, os_conn, server_id):
+        server = os_conn.compute.get_server(server_id)
+        volume = os_conn.get_volume(self.id)
+        os_conn.detach_volume(server=server, volume=volume)
+
+
+class VolumeType(models.Model, OpenstackMixin):
+    id = models.UUIDField(
+        primary_key=True
+    )
+    name = models.CharField(
+        max_length=255
+    )
+    is_public = models.BooleanField(
+        null=True
+    )
+    description = models.CharField(
+        null=True,
+        max_length=255
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('updated time'))
+
+    class Meta:
+        indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
