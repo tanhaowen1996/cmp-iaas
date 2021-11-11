@@ -156,6 +156,8 @@ OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 
 OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://127.0.0.1:35357/v3')
 
+OS_PROJECT_ID = os.getenv('OS_PROJECT_ID', 'YOUR-OS-ADMIN-PROJECT-ID')
+
 OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
 
 OS_INTERFACE = os.getenv('OS_INTERFACE', 'internal')

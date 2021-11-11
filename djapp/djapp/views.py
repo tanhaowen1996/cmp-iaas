@@ -56,7 +56,7 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         try:
             instance = serializer.Meta.model(**serializer.validated_data)
             instance.create_os_network_subnet(request.os_conn)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try creating openstack network {serializer.validated_data}: {exc}")
             return Response({
                 "detail": f"{exc}"
@@ -71,7 +71,7 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             instance.update_os_network_subnet(request.os_conn, **serializer.validated_data)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try updating openstack network {instance.id}: {exc}")
             return Response({
                 "detail": f"{exc}"
@@ -84,7 +84,7 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             instance.destroy_os_network_subnet(request.os_conn)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try destroying openstack network {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
@@ -123,10 +123,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         try:
             instance = serializer.Meta.model(**serializer.validated_data)
             instance.create_os_port(request.os_conn)
-        except (
-            openstack.exceptions.BadRequestException,
-            openstack.exceptions.ConflictException
-        ) as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try creating openstack port with {serializer.validated_data}: {exc}")
             return Response({
                 "detail": f"{exc}"
@@ -141,10 +138,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         try:
             instance.update_os_port(request.os_conn, **serializer.validated_data)
-        except (
-            openstack.exceptions.BadRequestException,
-            openstack.exceptions.ConflictException
-        ) as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try updating openstack port {instance.id}: {exc}")
             return Response({
                 "detail": f"{exc}"
@@ -157,7 +151,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             instance.destroy_os_port(request.os_conn)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try destroying openstack port {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
