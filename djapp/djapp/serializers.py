@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .fields import IPAddressField
-from .models import Network, Port, Keypair, Image
+from .models import Network, Port, Keypair, Image, Volume
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -89,10 +89,11 @@ class UpdatePortSerializer(serializers.ModelSerializer):
 class KeypairSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
     name = serializers.CharField(max_length=255),
-    user_id = serializers.UUIDField(required=False),
+    user_id = serializers.CharField(required=False),
     fingerprint = serializers.CharField(required=False),
     public_key = serializers.FileField(required=False),
     project_id = serializers.UUIDField(required=False),
+    user_name = serializers.CharField(required=False)
     ssh = 'ssh'
     x509 = 'x509'
     type_list = [
@@ -108,6 +109,7 @@ class KeypairSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'user_id',
+            'user_name',
             'fingerprint',
             'public_key',
             'type',
@@ -116,7 +118,59 @@ class KeypairSerializer(serializers.ModelSerializer):
             'updated_at'
         )
 
+
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Image
         fields = "__all__"
+
+
+class VolumeSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+    status = serializers.CharField(required=False)
+    size = serializers.IntegerField(required=False)
+    is_bootable = serializers.BooleanField(required=False)
+    attachments = serializers.JSONField(required=False)
+    created_at = serializers.DateTimeField(required=False)
+    user_name = serializers.CharField(required=False)
+    user_id = serializers.CharField(required=False)
+    server_name = serializers.CharField(required=False)
+    server_id = serializers.UUIDField(required=False)
+    volume_used = serializers.FloatField(required=False)
+    device = serializers.CharField(required=False)
+    updated_at = serializers.DateTimeField(required=False)
+
+    class Meta:
+        model = Volume
+        fields = (
+            'id',
+            'name',
+            'volume_type',
+            'size',
+            'status',
+            'is_bootable',
+            'attachments',
+            'created_at',
+            'user_name',
+            'user_id',
+            'volume_used',
+            'server_id',
+            'server_name',
+            'device',
+            'updated_at'
+        )
+
+
+class UpdateVolumeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Volume
+        fields = (
+            'status',
+            'size',
+            'name',
+            'description',
+            'status',
+            'cluster_name',
+            'updated_at'
+        )
