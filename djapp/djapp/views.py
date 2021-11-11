@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from .authentication import OSAuthentication
 from .serializers import (
-    NetworkSerializer, UpdateNetworkSerializer,
+    NetworkSerializer, UpdateNetworkSerializer, NetworkTenantListSerializer,
     PortSerializer, UpdatePortSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
@@ -49,6 +49,14 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     queryset = Network.objects.all()
     serializer_class = NetworkSerializer
     update_serializer_class = UpdateNetworkSerializer
+
+    @action(detail=True, methods=['post'], serializer_class=NetworkTenantListSerializer)
+    def tenants(self, request, pk=None):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

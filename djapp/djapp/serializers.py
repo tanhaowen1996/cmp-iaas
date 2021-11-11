@@ -4,12 +4,13 @@ from .models import Network, Port, Keypair, Image, Volume
 
 
 class NetworkSerializer(serializers.ModelSerializer):
-    tenants = serializers.SerializerMethodField()
 
     class Meta:
         model = Network
         fields = (
             'id',
+            'os_network_id',
+            'os_subnet_id',
             'name',
             'cidr',
             'total_interface',
@@ -23,11 +24,10 @@ class NetworkSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             'id', 'total_interface',
+            'os_network_id', 'os_subnet_id',
+            'tenants',
             'created', 'modified',
         )
-
-    def get_tenants(self, obj):
-        return []  # TODO: get related tenants
 
     def validate_vlan_id(self, value):
         MIN, MAX = 1, 4094
@@ -43,6 +43,23 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
         fields = (
             'name',
             'description',
+        )
+
+
+class TenantSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField(max_length=100)
+
+
+class NetworkTenantListSerializer(serializers.ModelSerializer):
+    tenants = serializers.ListField(
+        child=TenantSerializer()
+    )
+
+    class Meta:
+        model = Network
+        fields = (
+            'tenants',
         )
 
 

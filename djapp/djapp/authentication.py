@@ -53,4 +53,5 @@ class OSAuthentication(authentication.BaseAuthentication):
                     'first_name': account_info['accountName'],
                     'is_staff': bool(account_info['isPlatform'])
                 })
+            request.account_info = account_info
             return (user, None)

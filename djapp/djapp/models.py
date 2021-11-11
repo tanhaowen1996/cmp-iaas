@@ -23,6 +23,9 @@ class Network(models.Model, OpenstackMixin):
         editable=False)
     os_subnet_id = models.UUIDField(
         editable=False)
+    tenants = models.JSONField(
+        default=list,
+        verbose_name=_('tenant obj list with id & name'))
     name = models.CharField(
         max_length=20,
         unique=True,
