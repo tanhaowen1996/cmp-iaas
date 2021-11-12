@@ -8,7 +8,7 @@ from .serializers import (
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
 )
-from .filters import NetworkFilter, PortFilter, ImageFilter
+from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, VolumeFilter
 from .models import Network, Port, Keypair, Image, Volume
 import logging
 import openstack
@@ -185,10 +185,31 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+class KeypairViewSet(viewsets.ModelViewSet):
+    """
+            list:
+            获取ssh密钥列表
+
+            create:
+            创建ssh密钥
+
+            retrieve:
+            获取ssh密钥信息
+
+            destroy:
+            删除ssh密钥
+            """
     serializer_class = KeypairSerializer
     queryset = Keypair.objects.all()
     authentication_classes = (OSAuthentication,)
+    filter_class = KeypairFilter
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
+
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -218,7 +239,9 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 description=data.get('description'),
                 project_id=ssh.location.project.id,
                 user_name=request.user,
-                user_id=request.user.id
+                user_id=request.user.id,
+                tenant_id=request.account_info.get('tenantId'),
+                tenant_name=request.account_info.get('tenantName'),
             )
             headers = self.get_success_headers(serializer.data)
             return Response(ssh.private_key, status=status.HTTP_201_CREATED, headers=headers)
@@ -235,6 +258,17 @@ class KeypairViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         else:
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class ImageViewSet(viewsets.ModelViewSet):
@@ -322,9 +356,57 @@ class ImageViewSet(viewsets.ModelViewSet):
 
 
 class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+    """
+        list:
+        获取云硬盘列表
+
+        create:
+        创建云硬盘
+
+        retrieve:
+        获取云硬盘信息
+        "id":  云硬盘 id
+        "name":  云硬盘 名字
+        "volume_type":  云硬盘规格（high-ssd(高性能)/ssd(SSD)/normal(普通盘)）
+        "size":  云硬盘大小单位GB
+        "volume_used":  云硬盘使用量
+        "status": 状态（in-use 挂载状态， available 未挂载可使用,状态类型很多）
+        "is_bootable": 云硬盘的属性（false对应数据盘 ，true 对应系统盘）
+        "attachments":  云硬盘挂载的信息
+        "created_at":  创建时间
+        "user_name":  用户名
+        "user_id":   用户id
+        "volume_used": 云硬盘创建人
+        "server_id":  挂载的虚机id
+        "server_name": 挂载的虚机name
+        "device": 挂载的路径
+        "updated_at": 更新时间
+        "tenant_id"：租户id
+        "tenant_name"：租户名
+
+        update:
+        更新云硬盘
+
+        destroy:
+        删除云硬盘
+
+        attached:
+        挂载云硬盘
+
+        detached:
+        卸载云硬盘
+        """
     authentication_classes = (OSAuthentication,)
+    filterset_class = VolumeFilter
+    update_serializer_class = UpdateVolumeSerializer
     serializer_class = VolumeSerializer
     queryset = Volume.objects.all()
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -353,7 +435,9 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 status=volume.status,
                 attachments=volume.attachments,
                 cluster_name=volume.host,
-                user_name=request.user
+                user_name=request.user,
+                tenant_id=request.account_info.get('tenantId'),
+                tenant_name=request.account_info.get('tenantName'),
             )
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -405,30 +489,23 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+
         page = self.paginate_queryset(queryset)
-
-        try:
-            for instance in page:
-                volume = instance.get_volume(request.os_conn)
-                if instance.status == volume.status:
-                    continue
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                )
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-            serializer = self.get_serializer(queryset, many=True)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        except openstack.exceptions.BadRequestException as exc:
-            logger.error("try get openstack ssh key list filed")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        for instance in page:
+            volume = instance.get_volume(request.os_conn)
+            if instance.status == volume.status:
+                continue
+            serializer = UpdateVolumeSerializer(instance, data=volume)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                cluster_name=volume.host,
+                attachments=volume.attachments,
+            )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def attached(self, request, *args, **kwargs):
