@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Network, Port, Keypair, Image
+from .models import Network, Port, Keypair, Image, Volume
 
 
 @admin.register(Network)
@@ -30,3 +30,13 @@ class KeypairAdmin(admin.ModelAdmin):
                     'min_ram', 'protected', 'virtual_size',
                     'visibility', 'os_type', 'created_at',
                     'updated_at','description','user_id')
+
+
+@admin.register(Volume)
+class VolumeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'volume_type', 'size',
+                    'status', 'is_bootable', 'attachments',
+                    'created_at', 'user_name', 'user_id',
+                    'volume_used', 'server_id', 'server_name',
+                    'device', 'tenant_id', 'volume_used',
+                    'tenant_name', 'updated_at')
