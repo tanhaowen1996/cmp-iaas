@@ -6,7 +6,7 @@ from django_filters import (
     TypedChoiceFilter)
 from distutils.util import strtobool
 from netfields import InetAddressField
-from .models import Network, Port, Keypair, Image
+from .models import Network, Port, Keypair, Image, Volume
 
 
 class NetworkFilter(FilterSet):
@@ -48,11 +48,14 @@ class PortFilter(FilterSet):
 
 class KeypairFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
+    user_id = CharFilter(field_name='user_id', lookup_expr='icontains')
     fingerprint = CharFilter(field_name='fingerprint', lookup_expr='icontains')
+    user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
+    project_id = CharFilter(field_name='project_id', lookup_expr='icontains')
 
     class Meta:
         mode = Keypair
-        filter = ('name', 'fingerprint')
+        fields = ('project_id', 'user_id', 'name', 'fingerprint', 'user_name')
 
 class ImageFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
@@ -64,3 +67,19 @@ class ImageFilter(FilterSet):
     class Meta:
         mode = Image
         filter = ('name','visibility','os_type','owner','status' )
+
+
+class VolumeFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
+    user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
+    server_name = CharFilter(field_name='server_name', lookup_expr='icontains')
+    volume_type = CharFilter(field_name='volume_type', lookup_expr='icontains')
+    is_bootable = TypedChoiceFilter(
+        choices=(('false', 'false'), ('true', 'true')),
+        coerce=strtobool)
+    status = CharFilter(field_name='status', lookup_expr='icontains')
+
+    class Meta:
+        mode = Volume
+        filter = ('name', 'user_name', 'server_name', 'volume_type', 'is_bootable', 'status')
+
