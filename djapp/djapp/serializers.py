@@ -115,7 +115,9 @@ class KeypairSerializer(serializers.ModelSerializer):
     fingerprint = serializers.CharField(required=False),
     public_key = serializers.FileField(required=False),
     project_id = serializers.UUIDField(required=False),
-    user_name = serializers.CharField(required=False)
+    user_name = serializers.CharField(required=False),
+    tenant_id = serializers.CharField(required=False),
+    tenant_name = serializers.CharField(required=False)
     ssh = 'ssh'
     x509 = 'x509'
     type_list = [
@@ -137,7 +139,9 @@ class KeypairSerializer(serializers.ModelSerializer):
             'type',
             'description',
             'created_at',
-            'updated_at'
+            'updated_at',
+            'tenant_id',
+            'tenant_name',
         )
 
 
@@ -148,19 +152,23 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
+    status = serializers.CharField(required=False),
+    size = serializers.IntegerField(required=False),
+    is_bootable = serializers.BooleanField(required=False),
+    attachments = serializers.JSONField(required=False),
+    created_at = serializers.DateTimeField(required=False),
+    user_name = serializers.CharField(required=False),
+    user_id = serializers.CharField(required=False),
+    server_name = serializers.CharField(required=False),
+    server_id = serializers.UUIDField(required=False),
+    volume_used = serializers.FloatField(required=False),
+    device = serializers.CharField(required=False),
+    updated_at = serializers.DateTimeField(required=False),
+    volume_type = serializers.CharField(required=False),
+    tenant_id = serializers.CharField(required=False),
+    tenant_name = serializers.CharField(required=False),
+    host = serializers.CharField(required=False),
     id = serializers.UUIDField(required=False)
-    status = serializers.CharField(required=False)
-    size = serializers.IntegerField(required=False)
-    is_bootable = serializers.BooleanField(required=False)
-    attachments = serializers.JSONField(required=False)
-    created_at = serializers.DateTimeField(required=False)
-    user_name = serializers.CharField(required=False)
-    user_id = serializers.CharField(required=False)
-    server_name = serializers.CharField(required=False)
-    server_id = serializers.UUIDField(required=False)
-    volume_used = serializers.FloatField(required=False)
-    device = serializers.CharField(required=False)
-    updated_at = serializers.DateTimeField(required=False)
 
     class Meta:
         model = Volume
@@ -179,6 +187,9 @@ class VolumeSerializer(serializers.ModelSerializer):
             'server_id',
             'server_name',
             'device',
+            'tenant_id',
+            'volume_used',
+            'tenant_name',
             'updated_at'
         )
 
