@@ -28,12 +28,10 @@ class OSAuthentication(authentication.BaseAuthentication):
                 raise KeyError(f"{self.ACCOUNT_INFO_KEY} is missing")
 
             account_info = json.loads(b64decode(request.headers[self.ACCOUNT_INFO_KEY]))
-            project_id = settings.OS_PROJECT_ID if account_info[
-                'isPlatform'] else account_info['currentTenantCloudRel']['projectId']
             os_auth = v3.Token(
                 auth_url=settings.OS_AUTH_URL,
                 token=request.headers[self.OS_TOKEN_KEY],
-                project_id=project_id,
+                project_id=account_info['currentTenantCloudRel']['projectId'],
                 project_domain_name=settings.OS_PROJECT_DOMAIN_NAME,
             )
             request.os_conn = openstack.connection.Connection(

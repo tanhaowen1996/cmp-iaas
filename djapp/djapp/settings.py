@@ -50,6 +50,7 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
+    'NON_FIELD_ERRORS_KEY': 'all',
 }
 
 MIDDLEWARE = [
@@ -155,8 +156,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 
 OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://127.0.0.1:35357/v3')
-
-OS_PROJECT_ID = os.getenv('OS_PROJECT_ID', 'YOUR-OS-ADMIN-PROJECT-ID')
 
 OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
 

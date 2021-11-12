@@ -62,6 +62,11 @@ class NetworkTenantListSerializer(serializers.ModelSerializer):
             'tenants',
         )
 
+    def validate(self, data):
+        if not self.instance.is_shared:
+            raise serializers.ValidationError(f"the network is not shared")
+        return data
+
 
 class PortSerializer(serializers.ModelSerializer):
     ip_address = IPAddressField(allow_null=True, protocol='IPv4')

@@ -50,6 +50,14 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     serializer_class = NetworkSerializer
     update_serializer_class = UpdateNetworkSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(tenants__contains=[{
+                'id': self.request.account_info['tenantId']}])
+
+        return qs
+
     @action(detail=True, methods=['post'], serializer_class=NetworkTenantListSerializer)
     def tenants(self, request, pk=None):
         instance = self.get_object()
@@ -124,6 +132,14 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     queryset = Port.objects.all()
     serializer_class = PortSerializer
     update_serializer_class = UpdatePortSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(network__tenants__contains=[{
+                'id': self.request.account_info['tenantId']}])
+
+        return qs
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
