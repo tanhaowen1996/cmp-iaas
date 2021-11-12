@@ -161,6 +161,14 @@ class Keypair(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
+    tenant_id = models.CharField(
+        null=True,
+        max_length=255
+    )
+    tenant_name = models.CharField(
+        null=True,
+        max_length=255
+    )
     project_id = models.UUIDField(
         blank=True
     )
@@ -307,6 +315,14 @@ class Volume(models.Model, OpenstackMixin):
         max_length=255
     )
     user_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    tenant_id = models.CharField(
+        null=True,
+        max_length=255
+    )
+    tenant_name = models.CharField(
         null=True,
         max_length=255
     )
