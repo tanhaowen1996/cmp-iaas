@@ -21,15 +21,14 @@ class KeypairAdmin(admin.ModelAdmin):
                     'fingerprint', 'public_key',
                     'type_list', 'public_key')
 
+
 @admin.register(Image)
-class KeypairAdmin(admin.ModelAdmin):
+class ImageAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'owner',
                     'size', 'status',
                     'disk_format', 'container_format',
-                    'checksum', 'min_disk',
-                    'min_ram', 'protected', 'virtual_size',
                     'visibility', 'os_type', 'created_at',
-                    'updated_at','description','user_id')
+                    'updated_at', 'description', 'user_id')
 
 
 @admin.register(Volume)

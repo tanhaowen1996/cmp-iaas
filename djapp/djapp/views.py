@@ -1,3 +1,5 @@
+from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -13,7 +15,6 @@ from .models import Network, Port, Keypair, Image, Volume
 import logging
 import openstack
 
-from .utils import sess_image
 
 logger = logging.getLogger(__package__)
 
@@ -271,67 +272,106 @@ class KeypairViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ImageViewSet(viewsets.ModelViewSet):
+class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+    authentication_classes = (OSAuthentication,)
     filterset_class = ImageFilter
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
+    filter_backends = [DjangoFilterBackend]
+    filter_fields = ['os_type', 'name', 'visibility', 'status',
+                     'user_name', 'tenant_name']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) | Q(visibility="public"))
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        try:
+            for instance in page:
+                image = instance.get_image(request.os_conn)
+                if instance.size == image.size and instance.status == image.status:
+                    continue
+                serializer = ImageSerializer(instance, data=image)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    status=image.status,
+                    updated_at=image.updated_at,
+                    size=image.size
+                )
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error("try get openstack image key list filed")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
     def create(self, request, *args, **kwargs):
         file = request.data['file']
-        del request.data['file']
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            sess = sess_image()
-            image = sess.images.create(**data)
-            im_id = image['id']
+            image = Image.upload_image(request.os_conn, file, container_format='bare', disk_format='vmdk', **data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try creating openstack image {data}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            try:
+                des = image.properties['description']
+            except:
+                des = ""
+
+            if request.user.is_staff == False:
+                t_name = request.account_info.get('tenantName')
+                vis = "private"
+            else:
+                if request.data['visibility'] == "public":
+                    t_name = "admin"
+                    vis = "public"
+                else:
+                    t_name = request.data['tenant_name']
+                    vis = "private"
+
             serializer.save(
-                name = image.name,
-                id = image.id,
-                owner = image.owner,
-                size = image.size,
-                status =image.status,
-                disk_format = image.disk_format,
-                container_format = image.container_format,
-                checksum = image.checksum,
-                min_disk = image.min_disk,
-                min_ram = image.min_ram ,
-                protected = image.protected,
-                virtual_size = image.virtual_size,
-                visibility = image.visibility,
-                os_type = image.os_type,
-                created_at = image.created_at,
-                updated_at = image.updated_at,
-                description = image.description,
-                # user_id = "admin"
-            )
-            sess.images.upload(im_id, file)
-            info = sess.images.get(im_id)
-            serializer.save(
-                size=info.size,
-                status=info.status,
-                checksum=info.checksum,
-                min_disk=info.min_disk,
-                min_ram=info.min_ram,
-                virtual_size=info.virtual_size,
-                visibility=info.visibility,
-                updated_at=info.updated_at,
-            )
-            return Response({"msg":"The mirror image is being uploaded"})
+                name=image.name,
+                id=image.id,
+                owner=image.owner,
+                size=image.size,
+                status=image.status,
+                disk_format=image.disk_format,
+                container_format=image.container_format,
+                visibility=vis,
+                os_type=image.os_type,
+                created_at=image.created_at,
+                updated_at=image.updated_at,
+                description=des,
+                user_name=request.user,
+                user_id=request.user.id,
+                tenant_id=request.account_info.get('tenantId'),
+                tenant_name=t_name,
+                )
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data,
+                        status=status.HTTP_201_CREATED,
+                        headers=headers)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = ImageSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            instance.update_image(**serializer.validated_data)
+            instance.update_image(request.os_conn, **serializer.validated_data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try updating openstack image {instance.id}: {exc}")
             return Response({
@@ -344,9 +384,11 @@ class ImageViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
-            instance.destroy_image()
+            instance.destroy_image(
+                request.os_conn
+            )
         except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try destroying openstack port {instance.name}: {exc}")
+            logger.error(f"try destroying openstack image {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)

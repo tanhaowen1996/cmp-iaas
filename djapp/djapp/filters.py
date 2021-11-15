@@ -57,16 +57,18 @@ class KeypairFilter(FilterSet):
         mode = Keypair
         fields = ('project_id', 'user_id', 'name', 'fingerprint', 'user_name')
 
+
 class ImageFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
     visibility = CharFilter(field_name='visibility', lookup_expr='icontains')
     os_type = CharFilter(field_name='os_type', lookup_expr='icontains')
-    owner = CharFilter(field_name='owner', lookup_expr='icontains')
     status = CharFilter(field_name='status', lookup_expr='icontains')
+    user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
+    tenant_name = CharFilter(field_name='tenant_name', lookup_expr='icontains')
 
     class Meta:
         mode = Image
-        filter = ('name','visibility','os_type','owner','status' )
+        filter = ('name', 'visibility', 'os_type', 'status', 'user_name', 'tenant_name')
 
 
 class VolumeFilter(FilterSet):
@@ -82,4 +84,3 @@ class VolumeFilter(FilterSet):
     class Meta:
         mode = Volume
         filter = ('name', 'user_name', 'server_name', 'volume_type', 'is_bootable', 'status')
-

@@ -11,6 +11,3 @@ requests
 uvicorn
 uvloop
 openstacksdk
-python-glanceclient
-python-openstackclient
-python-keystoneclient

@@ -1,7 +1,8 @@
 from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from netfields import CidrAddressField, InetAddressField, MACAddressField, NetManager
+from netfields import CidrAddressField, InetAddressField,\
+    MACAddressField, NetManager
 from .utils import OpenstackMixin
 import uuid
 
@@ -220,11 +221,6 @@ class Image(models.Model, OpenstackMixin):
         ('ubuntu', 'ubuntu'),
         ('centos', 'centos'),
     )
-    visibility_t = (
-        ('public', 'public'),
-        ('private', 'private'),
-        ('shared', 'shared'),
-        ('community', 'community'))
 
     id = models.UUIDField(
         editable=False,
@@ -234,43 +230,46 @@ class Image(models.Model, OpenstackMixin):
 
     owner = models.UUIDField(
         default=uuid.uuid1,
-        verbose_name=_('image id'))
+        verbose_name=_('image owner'))
 
     name = models.CharField(
         max_length=20,
-        unique=True,
+        null=True,
         verbose_name=_('image name'))
     status = (
-        ('active','active'),
-        ('queued','queued'),
-        ('saving','saving'),
+        ('active', 'active'),
+        ('queued', 'queued'),
+        ('saving', 'saving'),
     )
 
-    size =  models.IntegerField(null=True)
+    size = models.IntegerField(null=True)
 
-    status = models.CharField(max_length=45,choices=status,null=True)
+    status = models.CharField(
+        max_length=45,
+        choices=status,
+        null=True)
 
-    disk_format = models.CharField( max_length=20,null=True)
+    disk_format = models.CharField(
+        max_length=20,
+        null=True)
 
-    container_format = models.CharField( max_length=45,null=True)
+    container_format = models.CharField(
+        max_length=45,
+        null=True)
 
-    checksum = models.CharField(max_length=255,null=True)
-
-    min_disk = models.IntegerField(null=True)
-
-    min_ram = models.IntegerField(null=True)
-
-    protected = models.BooleanField(default=True)
-
-    virtual_size = models.IntegerField(null=True)
     visibility = models.CharField(
-        choices=visibility_t,max_length=45,null=True)
+        max_length=45,
+        null=True)
 
-    os_type = models.CharField(max_length=45,choices=os_type_t,default="vmdk")
+    os_type = models.CharField(
+        max_length=45,
+        choices=os_type_t,
+        default="vmdk")
 
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
+    
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name=_('updated time'))
@@ -278,21 +277,42 @@ class Image(models.Model, OpenstackMixin):
     description = models.TextField(
         null=True
     )
-    user_id = models.UUIDField(
-        blank=True,
-        null=True
+
+    user_id = models.CharField(
+        null=True,
+        max_length=255
+    )
+    user_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    tenant_id = models.CharField(
+        null=True,
+        max_length=255
+    )
+    tenant_name = models.CharField(
+        null=True,
+        max_length=255
     )
 
     class Meta:
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
 
-    def update_image(self, name='', description=''):
-        os_conn = self.get_conn()
-        os_conn.image.update_image(str(self.id), name=name, description=description)
+    @classmethod
+    def upload_image(cls, os_conn, file, **kwargs):
+        up_image = os_conn.image.upload_image(data=file, **kwargs)
+        return up_image
 
-    def destroy_image(self):
-        os_conn = self.get_conn()
+    def update_image(self, os_conn, name='', description='', **kwargs):
+        os_conn.image.update_image(str(self.id), name=name,
+                                   description=description, **kwargs)
+
+    def destroy_image(self, os_conn):
         os_conn.image.delete_image(self.id, ignore_missing=False)
+
+    def get_image(self, os_conn):
+        image = os_conn.image.get_image(self.id)
+        return image
 
 
 class Volume(models.Model, OpenstackMixin):
