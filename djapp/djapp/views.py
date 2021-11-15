@@ -437,6 +437,11 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
         detached:
         卸载云硬盘
+
+        extend:
+        云硬盘扩容
+        需要size字段，单位GB，为扩容到多多少G，非扩容多少G
+
         """
     authentication_classes = (OSAuthentication,)
     filterset_class = VolumeFilter
@@ -600,6 +605,31 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 device=None,
                 server_name=None,
                 server_id=None,
+            )
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def extend(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            instance.extend_volume(request.os_conn, new_size=data['size'])
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try detached openstack volume {instance.name}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            volume = instance.get_volume(request.os_conn)
+            serializer = VolumeSerializer(instance, data=volume)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                status=volume.status,
+                size=data['size'],
             )
             serializer = self.get_serializer(instance)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
