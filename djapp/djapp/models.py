@@ -152,7 +152,6 @@ class Keypair(models.Model, OpenstackMixin):
     )
     name = models.CharField(
         max_length=255,
-        unique=True,
         verbose_name=_('keypair name'))
     user_id = models.CharField(
         blank=True,
@@ -201,6 +200,7 @@ class Keypair(models.Model, OpenstackMixin):
         return self.id
 
     class Meta:
+        unique_together = ('name', 'project_id')
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
 
     @classmethod
@@ -433,6 +433,10 @@ class Volume(models.Model, OpenstackMixin):
         server = os_conn.compute.get_server(server_id)
         volume = os_conn.get_volume(self.id)
         os_conn.detach_volume(server=server, volume=volume)
+
+    def extend_volume(self, os_conn, new_size):
+        volume = os_conn.get_volume(self.id)
+        os_conn.volume.extend_volume(volume, size=new_size)
 
 
 class VolumeType(models.Model, OpenstackMixin):
