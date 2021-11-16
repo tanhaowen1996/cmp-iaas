@@ -216,7 +216,7 @@ class KeypairViewSet(viewsets.ModelViewSet):
 
             destroy_all:
             批量删除ssh密钥
-            传入参数：kry：value -> keypairs: [uuid1,uuid2,....]
+            传入参数：key：value -> keypairs: [uuid1,uuid2,....]
             """
     serializer_class = KeypairSerializer
     queryset = Keypair.objects.all()
@@ -483,21 +483,15 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        data_request = request.data.copy()
+        data_request.pop('num')
+        serializer = self.get_serializer(data=data_request)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        try:
-            volume = Volume.create_volume(
-                request.os_conn,
-                name=data['name'],
-                size=data['size'],
-                volume_type=data['volume_type'])
-        except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try create openstack volume {data['name']}:{exc}")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
-        else:
+        return_data = []
+        def save(volume):
+            serializer = self.get_serializer(data=data_request)
+            serializer.is_valid(raise_exception=True)
             serializer.save(
                 id=volume.id,
                 name=volume.name,
@@ -513,8 +507,24 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 tenant_id=request.account_info.get('tenantId'),
                 tenant_name=request.account_info.get('tenantName'),
             )
+            return_data.append(serializer.data)
+        try:
+            for num in range(int(request.data['num'])):
+                volume = Volume.create_volume(
+                    request.os_conn,
+                    name=data['name'],
+                    size=data['size'],
+                    volume_type=data['volume_type'])
+                save(volume)
+
+        except openstack.exceptions.BadRequestException as exc:
+            logger.error(f"try create openstack volume {data['name']}:{exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
             headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            return Response(return_data, status=status.HTTP_201_CREATED, headers=headers)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
