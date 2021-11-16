@@ -68,7 +68,8 @@ class ImageFilter(FilterSet):
 
     class Meta:
         mode = Image
-        filter = ('name', 'visibility', 'os_type', 'status', 'user_name', 'tenant_name')
+        filter = ('name', 'visibility', 'os_type',
+                  'status', 'user_name', 'tenant_name', 'disk_format')
 
 
 class VolumeFilter(FilterSet):

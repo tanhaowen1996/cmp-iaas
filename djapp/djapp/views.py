@@ -227,7 +227,6 @@ class KeypairViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
             qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
-
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -306,7 +305,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     serializer_class = ImageSerializer
     filter_backends = [DjangoFilterBackend]
     filter_fields = ['os_type', 'name', 'visibility', 'status',
-                     'user_name', 'tenant_name']
+                     'user_name', 'tenant_name', 'disk_format']
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -317,37 +316,34 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
-        try:
-            for instance in page:
-                image = instance.get_image(request.os_conn)
-                if instance.size == image.size and instance.status == image.status:
-                    continue
-                serializer = ImageSerializer(instance, data=image)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    status=image.status,
-                    updated_at=image.updated_at,
-                    size=image.size
-                )
-            if page is not None:
-                serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
-            serializer = self.get_serializer(queryset, many=True)
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except openstack.exceptions.BadRequestException as exc:
-            logger.error("try get openstack image key list filed")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+        for instance in page:
+            image = instance.get_image(request.os_conn)
+            if instance.size == image.size and instance.status == image.status:
+                continue
+            serializer = ImageSerializer(instance, data=image)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(
+                status=image.status,
+                updated_at=image.updated_at,
+                size=image.size
+            )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def create(self, request, *args, **kwargs):
         file = request.data['file']
+        dis_for = request.data['disk_format']
+        del request.data['disk_format']
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            image = Image.upload_image(request.os_conn, file, container_format='bare', disk_format='vmdk', **data)
+            if not self.request.user.is_staff:
+                data['visibility'] = 'private'
+            else:
+                data['visibility'] = 'public'
+            image = Image.upload_images(request.os_conn, file,
+                    container_format='bare', disk_format=dis_for, **data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try creating openstack image {data}: {exc}")
             return Response({
@@ -358,18 +354,6 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 des = image.properties['description']
             except:
                 des = ""
-
-            if request.user.is_staff == False:
-                t_name = request.account_info.get('tenantName')
-                vis = "private"
-            else:
-                if request.data['visibility'] == "public":
-                    t_name = "admin"
-                    vis = "public"
-                else:
-                    t_name = request.data['tenant_name']
-                    vis = "private"
-
             serializer.save(
                 name=image.name,
                 id=image.id,
@@ -378,7 +362,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 status=image.status,
                 disk_format=image.disk_format,
                 container_format=image.container_format,
-                visibility=vis,
+                visibility=image.visibility,
                 os_type=image.os_type,
                 created_at=image.created_at,
                 updated_at=image.updated_at,
@@ -386,7 +370,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 user_name=request.user,
                 user_id=request.user.id,
                 tenant_id=request.account_info.get('tenantId'),
-                tenant_name=t_name,
+                tenant_name=request.account_info.get('tenantName')
                 )
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data,
@@ -398,7 +382,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer = ImageSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            instance.update_image(request.os_conn, **serializer.validated_data)
+            instance.update_images(request.os_conn, **serializer.validated_data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try updating openstack image {instance.id}: {exc}")
             return Response({
@@ -422,6 +406,15 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         else:
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['delete'])
+    def destory_all(self, request, *args, **kwargs):
+        images = request.data['images']
+        for images_id in images:
+            image = Image.objects.get(id=images_id)
+            image.destroy_image(os_conn=request.os_conn)
+            self.perform_destroy(image)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
