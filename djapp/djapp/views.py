@@ -75,7 +75,11 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def verbosity(self, request, pk=None):
-        return Response(self.get_object().get_os_network_subnet(request.os_conn))
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            **serializer.data,
+            **instance.get_os_network_subnet(request.os_conn)})
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

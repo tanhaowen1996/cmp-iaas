@@ -89,24 +89,12 @@ class Network(models.Model, OpenstackMixin):
         network = os_conn.network.find_network(self.os_network_id)
         subnet = os_conn.network.find_subnet(self.os_subnet_id)
         return {
-            'name': self.name,
             'port_number': self.port_set.count(),
             'status': network.status,
-            'tenants': self.tenants,
             'mtu': network.mtu,
             'provider_physical_network': network.provider_physical_network,
-
-            'id': self.id,
-            'category': self.category,
             'creater': self.creater.get_full_name(),
             'provider_network_type': network.provider_network_type,
-            'total_interface': self.total_interface,
-            'description': self.description,
-
-            'cidr': str(self.cidr),
-            'is_shared': self.is_shared,
-            'created': self.created,
-            'vlan_id': self.vlan_id,
             'allocation_pools': subnet.allocation_pools
         }
 
