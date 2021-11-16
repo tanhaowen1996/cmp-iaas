@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -43,6 +44,9 @@ class Network(models.Model, OpenstackMixin):
     description = models.CharField(
         blank=True,
         max_length=50)
+    creater = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT)
     created = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
@@ -80,6 +84,31 @@ class Network(models.Model, OpenstackMixin):
     def destroy_os_network_subnet(self, os_conn):
         os_conn.network.delete_subnet(self.os_subnet_id, ignore_missing=False)
         os_conn.network.delete_network(self.os_network_id, ignore_missing=False)
+
+    def get_os_network_subnet(self, os_conn):
+        network = os_conn.network.find_network(self.os_network_id)
+        subnet = os_conn.network.find_subnet(self.os_subnet_id)
+        return {
+            'name': self.name,
+            'port_number': self.port_set.count(),
+            'status': network.status,
+            'tenants': self.tenants,
+            'mtu': network.mtu,
+            'provider_physical_network': network.provider_physical_network,
+
+            'id': self.id,
+            'category': self.category,
+            'creater': self.creater.get_full_name(),
+            'provider_network_type': network.provider_network_type,
+            'total_interface': self.total_interface,
+            'description': self.description,
+
+            'cidr': str(self.cidr),
+            'is_shared': self.is_shared,
+            'created': self.created,
+            'vlan_id': self.vlan_id,
+            'allocation_pools': subnet.allocation_pools
+        }
 
 
 class Port(models.Model, OpenstackMixin):

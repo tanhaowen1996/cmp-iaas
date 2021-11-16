@@ -40,10 +40,16 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     Get instance
 
     update:
-    Update instance (fields: name, description)
+    Update instance
 
     destroy:
     drop instance
+
+    tenants:
+    set related tenant list for instance
+
+    verbosity:
+    Get instance detail info
     """
     authentication_classes = (OSAuthentication,)
     filterset_class = NetworkFilter
@@ -66,6 +72,10 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def verbosity(self, request, pk=None):
+        return Response(self.get_object().get_os_network_subnet(request.os_conn))
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
