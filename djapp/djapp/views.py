@@ -199,6 +199,10 @@ class KeypairViewSet(viewsets.ModelViewSet):
 
             destroy:
             删除ssh密钥
+
+            destroy_all:
+            批量删除ssh密钥
+            传入参数：kry：value -> keypairs: [uuid1,uuid2,....]
             """
     serializer_class = KeypairSerializer
     queryset = Keypair.objects.all()
@@ -270,6 +274,15 @@ class KeypairViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['delete'])
+    def destroy_all(self, request, *args, **kwargs):
+        keypairs = request.data['keypairs'].split(',')
+        for keypair_id in keypairs:
+            keypair = Keypair.objects.get(id=keypair_id)
+            keypair.destroy_keypair(os_conn=request.os_conn)
+            self.perform_destroy(keypair)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
