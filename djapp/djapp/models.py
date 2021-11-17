@@ -325,7 +325,7 @@ class Image(models.Model, OpenstackMixin):
         os_conn.image.update_image(str(self.id),  **kwargs)
 
     def destroy_image(self, os_conn):
-        os_conn.image.delete_image(self.id, ignore_missing=False)
+        os_conn.image.delete_image(self.id, ignore_missing=True)
 
     def get_image(self, os_conn):
         image = os_conn.image.get_image(self.id)
