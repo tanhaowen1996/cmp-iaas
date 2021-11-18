@@ -353,6 +353,10 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            if image.properties == {}:
+                des = ""
+            else:
+                des= image.properties['description']
             serializer.save(
                 name=image.name,
                 id=image.id,
@@ -365,7 +369,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 os_type=image.os_type,
                 created_at=image.created_at,
                 updated_at=image.updated_at,
-                description=image.properties['description'],
+                description=des,
                 user_name=request.user,
                 user_id=request.user.id,
                 tenant_id=request.account_info.get('tenantId'),
