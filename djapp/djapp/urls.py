@@ -20,6 +20,7 @@ from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 from .views import NetworkViewSet, PortViewSet, KeypairViewSet, ImageViewSet, VolumeViewSet
 from resource_application.views import ResourceApplicationViewSet
+from message_board.views import TopicViewSet
 
 router = SimpleRouter(trailing_slash=False)
 router.register(r'network', NetworkViewSet, basename='network')
@@ -29,6 +30,7 @@ router.register(r'image', ImageViewSet, basename='image')
 router.register(r'volume', VolumeViewSet, basename='volume')
 
 router.register(r'resource-application', ResourceApplicationViewSet, basename='resource_application')
+router.register(r'message-board', TopicViewSet, basename='message_board')
 
 urlpatterns = [
     path('v2/', include(router.urls)),

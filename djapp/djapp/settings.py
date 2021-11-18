@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_yasg',
     'resource_application',
+    'message_board',
     'djapp',
 ]
 
