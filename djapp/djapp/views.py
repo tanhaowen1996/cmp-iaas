@@ -353,10 +353,6 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            try:
-                des = image.properties['description']
-            except:
-                des = ""
             serializer.save(
                 name=image.name,
                 id=image.id,
@@ -369,7 +365,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 os_type=image.os_type,
                 created_at=image.created_at,
                 updated_at=image.updated_at,
-                description=des,
+                description=image.properties['description'],
                 user_name=request.user,
                 user_id=request.user.id,
                 tenant_id=request.account_info.get('tenantId'),
@@ -384,8 +380,9 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = ImageSerializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         try:
-            instance.update_images(request.os_conn, **serializer.validated_data)
+            instance.update_images(request.os_conn, **data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try updating openstack image {instance.id}: {exc}")
             return Response({

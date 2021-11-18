@@ -286,13 +286,15 @@ class Image(models.Model, OpenstackMixin):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
-    
+
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name=_('updated time'))
 
-    description = models.TextField(
-        null=True
+    description = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
     )
 
     user_id = models.CharField(
@@ -303,10 +305,12 @@ class Image(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
+
     tenant_id = models.CharField(
         null=True,
         max_length=255
     )
+
     tenant_name = models.CharField(
         null=True,
         max_length=255
