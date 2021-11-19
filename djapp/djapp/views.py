@@ -667,3 +667,53 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             )
             serializer = self.get_serializer(instance)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def attached_list(self, request, *args, **kwargs):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) &
+                           (Q(server_id=None) | Q(server_id=request.data['server_id'])))
+        queryset = self.filter_queryset(qs)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            for instance in page:
+                volume = instance.get_volume(request.os_conn)
+                if instance.status == volume.status:
+                    continue
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                )
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def detached_list(self, request, *args, **kwargs):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(tenant_id=self.request.account_info['tenantId'],
+                           server_id=request.data['server_id'])
+        queryset = self.filter_queryset(qs)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            for instance in page:
+                volume = instance.get_volume(request.os_conn)
+                if instance.status == volume.status:
+                    continue
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                )
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
