@@ -573,18 +573,18 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
         page = self.paginate_queryset(queryset)
         if page is not None:
+            for instance in page:
+                volume = instance.get_volume(request.os_conn)
+                if instance.status == volume.status:
+                    continue
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                )
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        for instance in page:
-            volume = instance.get_volume(request.os_conn)
-            if instance.status == volume.status:
-                continue
-            serializer = UpdateVolumeSerializer(instance, data=volume)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(
-                cluster_name=volume.host,
-                attachments=volume.attachments,
-            )
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
