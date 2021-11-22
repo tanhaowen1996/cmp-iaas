@@ -121,8 +121,14 @@ class NovaAPI(object):
         # LOG.info('Fetch Server list...')
         return self.client.servers.list(detailed=True, search_opts=opts)
 
+    def get_server_interfaces(self, instance_id):
+        return self.client.servers.interface_list(instance_id)
+
     def get_flavors(self):
         return self.client.flavors.list()
+
+    def get_flavor_access(self, flavor_id):
+        return self.client.flavor_access.list(flavor=flavor_id)
 
     def get_keypairs(self):
         return self.client.keypairs.list()
@@ -180,6 +186,9 @@ class CinderAPI(object):
             "all_tenants": all_tenants
         })
 
+    def get_volume_types(self):
+        return self.client.volume_types.list()
+
 
 class NeutronAPI(object):
 
@@ -208,6 +217,9 @@ class NeutronAPI(object):
     def get_subnets(self):
         return self.client.list_subnets(retrieve_all=True).get('subnets', [])
 
+    def get_subnet(self, subnet_id):
+        return self.client.show_subnet(subnet_id)
+
     def get_ports(self):
         return self.client.list_ports(retrieve_all=True).get('ports', [])
 
@@ -225,28 +237,46 @@ if __name__ == '__main__':
     def test_volume():
         print("List Volumes:")
         cinder_api = CinderAPI.create()
-        for volume in cinder_api.get_volumes():
-            print(volume)
+        # for volume in cinder_api.get_volumes():
+        #    print(volume)
+
+        """
+        volume = cinder_api.get_volumes()[0]
+        print('type: %s' % type(volume))
+        print('dir: %s' % dir(volume))
         print('----------------------------------')
+        print('to_dict: %s' % volume.to_dict())
+        """
+        for volume_type in cinder_api.get_volume_types():
+            print(volume_type.to_dict())
 
     def test_instance():
         nova_api = NovaAPI.create()
-   
-        print("List Instances:")
-        for instance in nova_api.get_servers():
-            print(instance)
-        print('----------------------------------')
 
+        """
         print("List Flavors:")
         for flavor in nova_api.get_flavors():
-            print(flavor)
+            print(flavor.to_dict())
         print('----------------------------------')
-    
+        """
+
+        """
+        print("List Instances:")
+        for instance in nova_api.get_servers():
+            print(instance.to_dict())
+        print('----------------------------------')
+        """
+
+        """
         print("List Key Pairs:")
         for key_pair in nova_api.get_keypairs():
             print(key_pair)
         print('----------------------------------')
+        """
 
+        interfaces = nova_api.get_server_interfaces('b8a5030a-06a7-4f8c-a3b6-723a1f92c35f')
+        for interface in interfaces:
+            print(interface.to_dict())
 
     def test_network():
         neutron_api = NeutronAPI.create()
@@ -267,7 +297,7 @@ if __name__ == '__main__':
         print('----------------------------------')
 
     # test_image()
-    # test_instance()
+    test_instance()
     # test_volume()
     # test_network()
 
@@ -289,4 +319,4 @@ if __name__ == '__main__':
 
     # test_keypair()
 
-    print('project_id: %s' % _session().get_project_id())
+    # print('project_id: %s' % _session().get_project_id())
