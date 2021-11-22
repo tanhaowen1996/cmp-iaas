@@ -20,27 +20,43 @@ def _alg_sync(db_objects, db_obj_key_fn, os_objects, os_obj_key_fn,
     LOG.debug("exist set: %s" % set(exist_objects))
     LOG.debug("new set: %s" % set(new_objects))
 
+    def _db_create(os_obj):
+        try:
+            create_db_fn(os_obj)
+        except Exception as ex:
+            LOG.exception(ex)
+
+    def _db_update(db_obj, os_obj):
+        try:
+            update_db_fn(db_obj, os_obj)
+        except Exception as ex:
+            LOG.exception(ex)
+
+    def _db_remove(db_obj):
+        try:
+            remove_db_fn(db_obj)
+        except Exception as ex:
+            LOG.exception(ex)
+
     for existed in exist_objects.values():
         if db_obj_key_fn(existed) in set(exist_objects) - set(new_objects):
             # Remove previously unknown resource.
             if not remove_allowed:
                 LOG.warning("Will not remove unknown resource: %s" % db_obj_key_fn(existed))
                 continue
-            try:
-                remove_db_fn(existed)
-                LOG.info("Removed previously unknown resource: %s" % db_obj_key_fn(existed))
-            except Exception as e:
-                LOG.exception(e)
+
+            _db_remove(existed)
+            LOG.info("Removed previously unknown resource: %s" % db_obj_key_fn(existed))
         else:
             # Update tracked resources.
             new_value = new_objects[db_obj_key_fn(existed)]
-            update_db_fn(existed, new_value)
+            _db_update(existed, new_value)
             LOG.info("Updated tracked resource: %s" % db_obj_key_fn(existed))
 
     # Track newly discovered resources.
     for os_obj in [os_obj for os_obj in new_objects.values() if
                    os_obj_key_fn(os_obj) in set(new_objects) - set(exist_objects)]:
-        create_db_fn(os_obj)
+        _db_create(os_obj)
         LOG.info("Tracked newly discovered resource: %s" % os_obj_key_fn(os_obj))
 
 
@@ -59,28 +75,8 @@ class ImageSyncer(Syncer):
     def do(self):
         self.do_sync_images()
 
-    def do_sync_images(self):
-        """Sync db objects with openstack information."""
-        db_objects = models.Image.objects.all()
-        os_objects = osapi.GlanceAPI.create().get_images()
-
-        LOG.info("Start to do images syncing ...")
-
-        _alg_sync(db_objects=db_objects,
-                  db_obj_key_fn=lambda obj: str(obj.id),
-                  os_objects=os_objects,
-                  os_obj_key_fn=lambda obj: str(obj['id']),
-                  create_db_fn=self.create_image,
-                  update_db_fn=self.update_image,
-                  remove_db_fn=self.remove_image)
-
-    def remove_image(self, db_obj):
-        LOG.info("Remove Unknown Image: %s" % db_obj)
-        db_obj.delete()
-
-    def create_image(self, os_obj):
-        """Create Image from OpenStack.
-
+    def _convert_image_from_os2db(self, db_obj, os_obj):
+        """
         OpenStack Image Model:
         {
             'description': 'wewqrw',
@@ -111,11 +107,6 @@ class ImageSyncer(Syncer):
             'schema': '/v2/schemas/image'
         }
         """
-        LOG.info("Create a new image: %s" % os_obj)
-
-        # create db obj:
-        db_obj = models.Image()
-
         db_obj.id = os_obj.get('id')
         db_obj.name = os_obj.get('name')
         db_obj.description = os_obj.get('description')
@@ -137,29 +128,38 @@ class ImageSyncer(Syncer):
         # tenant_id = os_obj.account_info.get('tenantId'),
         # tenant_name = os_obj
 
-        # save to db:
-        db_obj.save()
+    def do_sync_images(self):
+        """Sync db objects with openstack information."""
+        db_objects = models.Image.objects.all()
+        os_objects = osapi.GlanceAPI.create().get_images()
 
-    def update_image(self, db_obj, os_obj):
-        LOG.info("Update db image: %s from os image: %s" % (db_obj.id, os_obj['id']))
+        LOG.info("Start to do images syncing ...")
 
-        db_obj.name = os_obj.get('name')
-        db_obj.description = os_obj.get('description')
+        def _remove_image(db_obj):
+            LOG.info("Remove Unknown Image: %s" % db_obj)
+            db_obj.delete()
 
-        db_obj.size = os_obj.get('size')
-        db_obj.status = os_obj.get('status')
-        db_obj.os_type = os_obj.get('os_type', 'unknown')
+        def _create_image(os_obj):
+            LOG.info("Create a new image: %s" % os_obj.get('id'))
+            # create db obj:
+            db_obj = models.Image()
+            self._convert_image_from_os2db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
 
-        db_obj.owner = os_obj.get('owner')
-        db_obj.disk_format = os_obj.get('disk_format')
-        db_obj.container_format = os_obj.get('container_format')
-        os_obj.visibility = os_obj.get('visibility')
+        def _update_image(db_obj, os_obj):
+            LOG.info("Update existed image: %s" % db_obj.id)
+            self._convert_image_from_os2db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
 
-        db_obj.created_at = os_obj.get('created_at')
-        db_obj.updated_at = os_obj.get('updated_at')
-
-        # update to db:
-        db_obj.save()
+        _alg_sync(db_objects=db_objects,
+                  db_obj_key_fn=lambda obj: str(obj.id),
+                  os_objects=os_objects,
+                  os_obj_key_fn=lambda obj: str(obj['id']),
+                  create_db_fn=_create_image,
+                  update_db_fn=_update_image,
+                  remove_db_fn=_remove_image)
 
 
 # KeyPair
@@ -169,36 +169,15 @@ class KeyPairSyncer(Syncer):
         # TODO: now only admin's key pairs to be synced
         self.do_key_pairs_sync()
 
-    def do_key_pairs_sync(self):
-        """Sync db objects with openstack information."""
-        db_objects = models.Keypair.objects.all()
-        os_objects = osapi.NovaAPI.create().get_keypairs()
-
-        LOG.info("Start to do Key pairs syncing ...")
-
-        _alg_sync(db_objects=db_objects,
-                  db_obj_key_fn=lambda obj: obj.name,
-                  os_objects=os_objects,
-                  os_obj_key_fn=lambda obj: obj.name,
-                  create_db_fn=self.create_keypair,
-                  update_db_fn=self.update_keypair,
-                  remove_db_fn=self.remove_keypair)
-
-    def create_keypair(self, os_obj):
-        """
-        os keypair dict:
+    def _convert_keypair_from_os2_db(self, db_obj, os_obj):
+        """OpenStack keypair dict:
         {
-            'keypair': {
-                'name': '111',
-                'public_key': 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC/7YmNX/5hbu7MDgXJmK9doQxmYKaEkE1zFCH16FMGl7dMYMwn3B3CsdPOY+gueGOIsj2Yg1Bsg95AT76joWABxQNQDxfpmpoPOnPTjHS/N6NrrlfL/OKkEkqj6tA2907W61crkEbnlUm9ZVFkKzcBDrgKxUY4tk1334eUf8J5TfsMj7MlHtwHcIs1SGtfmF2Epgq7nMV7PNX0jhvSZIi3YesOGTiAaI1W9MT/NLJJz2r9GsVLzaJuQCYDMEaIyoCTWHZNQdyJULUMoACu5dj0HwHc3vdCyJCHgIWk/Ctwoe97JPi531sjynEPe+oT7MVNBWWjTMEGZMLMs2DvChpb Generated-by-Nova',
-                'fingerprint': '8a:79:00:88:aa:ad:21:89:5e:98:1b:31:34:4a:9d:37',
-                'type': 'ssh'
-            }
+            'name': '111',
+            'public_key': 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC/7YmNX/5hbu7MDgXJmK9doQxmYKaEkE1zFCH16FMGl7dMYMwn3B3CsdPOY+gueGOIsj2Yg1Bsg95AT76joWABxQNQDxfpmpoPOnPTjHS/N6NrrlfL/OKkEkqj6tA2907W61crkEbnlUm9ZVFkKzcBDrgKxUY4tk1334eUf8J5TfsMj7MlHtwHcIs1SGtfmF2Epgq7nMV7PNX0jhvSZIi3YesOGTiAaI1W9MT/NLJJz2r9GsVLzaJuQCYDMEaIyoCTWHZNQdyJULUMoACu5dj0HwHc3vdCyJCHgIWk/Ctwoe97JPi531sjynEPe+oT7MVNBWWjTMEGZMLMs2DvChpb Generated-by-Nova',
+            'fingerprint': '8a:79:00:88:aa:ad:21:89:5e:98:1b:31:34:4a:9d:37',
+            'type': 'ssh'
         }
         """
-        LOG.info("Create a new keypair: %s" % os_obj)
-        db_obj = models.Keypair()
-
         db_obj.name = os_obj.name
         # description
         db_obj.fingerprint = os_obj.fingerprint
@@ -215,23 +194,37 @@ class KeyPairSyncer(Syncer):
         # created_at
         # updated_at
 
-        # save to db:
-        db_obj.save()
+    def do_key_pairs_sync(self):
+        """Sync db objects with openstack information."""
+        db_objects = models.Keypair.objects.all()
+        os_objects = osapi.NovaAPI.create().get_keypairs()
 
-    def update_keypair(self, db_obj, os_obj):
-        LOG.info("Update existed keypair %s from %s" % (db_obj.name, os_obj.name))
+        LOG.info("Start to do Key pairs syncing ...")
 
-        db_obj.name = os_obj.name
-        db_obj.fingerprint = os_obj.fingerprint
-        db_obj.public_key = os_obj.public_key
-        db_obj.type = os_obj.type
+        def _remove_keypair(db_obj):
+            LOG.info("Remove unknown keypair %s" % db_obj.name)
+            db_obj.delete()
 
-        # update to db:
-        db_obj.save()
+        def _create_keypair(os_obj):
+            LOG.info("Create a new keypair: %s" % os_obj)
+            db_obj = models.Keypair()
+            self._convert_keypair_from_os2_db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
 
-    def remove_keypair(self, db_obj):
-        LOG.info("Remove unknown keypair %s" % db_obj.name)
-        db_obj.delete()
+        def _update_keypair(db_obj, os_obj):
+            LOG.info("Update existed keypair %s from %s" % (db_obj.name, os_obj.name))
+            self._convert_keypair_from_os2_db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
+
+        _alg_sync(db_objects=db_objects,
+                  db_obj_key_fn=lambda obj: obj.name,
+                  os_objects=os_objects,
+                  os_obj_key_fn=lambda obj: obj.name,
+                  create_db_fn=_create_keypair,
+                  update_db_fn=_update_keypair,
+                  remove_db_fn=_remove_keypair)
 
 
 # Volume
@@ -411,20 +404,6 @@ class NetworkSyncer(Syncer):
         # TODO:
         # self.do_networks_total_interface_sync()
 
-    def do_networks_sync(self):
-        db_objects = models.Network.objects.all()
-        os_objects = osapi.NeutronAPI.create().get_networks()
-
-        LOG.info("Start to do networks syncing ...")
-
-        _alg_sync(db_objects=db_objects,
-                  db_obj_key_fn=lambda obj: str(obj.id),
-                  os_objects=os_objects,
-                  os_obj_key_fn=lambda obj: str(obj.id),
-                  create_db_fn=self._create_network,
-                  update_db_fn=self._update_network,
-                  remove_db_fn=self._remove_network)
-
     def _convert_network_from_os2db(self, db_obj, os_obj):
         """OpenStack network dict:
         {
@@ -498,36 +477,36 @@ class NetworkSyncer(Syncer):
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
-    def _create_network(self, os_obj):
-        LOG.info("Create a new network: %s" % os_obj.get('id'))
-        db_obj = models.Network()
-        self._convert_network_from_os2db(db_obj, os_obj)
-        # save to db:
-        db_obj.save()
+    def do_networks_sync(self):
+        db_objects = models.Network.objects.all()
+        os_objects = osapi.NeutronAPI.create().get_networks()
 
-    def _update_network(self, db_obj, os_obj):
-        LOG.info("Update existed network: %s" % db_obj.id)
-        self._convert_network_from_os2db(db_obj, os_obj)
-        # update to db:
-        db_obj.save()
+        LOG.info("Start to do networks syncing ...")
 
-    def _remove_network(self, db_obj):
-        LOG.info("Remove unknown network: %s" % db_obj.id)
-        db_obj.delete()
+        def _remove_network(db_obj):
+            LOG.info("Remove unknown network: %s" % db_obj.id)
+            db_obj.delete()
 
-    def do_ports_sync(self):
-        db_objects = models.Port.objects.all()
-        os_objects = osapi.NeutronAPI.create().get_ports()
+        def _create_network(os_obj):
+            LOG.info("Create a new network: %s" % os_obj.get('id'))
+            db_obj = models.Network()
+            self._convert_network_from_os2db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
 
-        LOG.info("Start to do network ports syncing ...")
+        def _update_network(db_obj, os_obj):
+            LOG.info("Update existed network: %s" % db_obj.id)
+            self._convert_network_from_os2db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
 
         _alg_sync(db_objects=db_objects,
                   db_obj_key_fn=lambda obj: str(obj.id),
                   os_objects=os_objects,
                   os_obj_key_fn=lambda obj: str(obj.id),
-                  create_db_fn=self._create_network_port,
-                  update_db_fn=self._update_network_port,
-                  remove_db_fn=self._remove_network_port)
+                  create_db_fn=_create_network,
+                  update_db_fn=_update_network,
+                  remove_db_fn=_remove_network)
 
     def _convert_port_from_os2db(self, db_obj, os_obj):
         """OpenStack port dict:
@@ -570,42 +549,42 @@ class NetworkSyncer(Syncer):
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
-    def _create_network_port(self, os_obj):
-        LOG.info("Create a network port: %s" % os_obj.get('id'))
-        db_obj = models.Port()
-        self._convert_port_from_os2db(db_obj, os_obj)
-        # save to db:
-        db_obj.save()
+    def do_ports_sync(self):
+        db_objects = models.Port.objects.all()
+        os_objects = osapi.NeutronAPI.create().get_ports()
 
-    def _update_network_port(self, db_obj, os_obj):
-        LOG.info("Update existed network port: %s" % db_obj.id)
-        self._convert_port_from_os2db(db_obj, os_obj)
-        # update to db:
-        db_obj.save()
+        LOG.info("Start to do network ports syncing ...")
 
-    def _remove_network_port(self, db_obj):
-        LOG.info("Remove unknown network port: %s" % db_obj.id)
-        db_obj.delete()
+        def _create_network_port(os_obj):
+            LOG.info("Create a network port: %s" % os_obj.get('id'))
+            db_obj = models.Port()
+            self._convert_port_from_os2db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
 
-class FlavorSyncer(Syncer):
+        def _update_network_port(db_obj, os_obj):
+            LOG.info("Update existed network port: %s" % db_obj.id)
+            self._convert_port_from_os2db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
 
-    def do(self):
-        self.do_flavors_sync()
-
-    def do_flavors_sync(self):
-        db_objects = models.Flavor.objects.all()
-        os_objects = osapi.NovaAPI.create().get_flavors()
-        os_objects = [os_obj.to_dict() for os_obj in os_objects]
-
-        LOG.info("Start to do flavors sync ...")
+        def _remove_network_port(db_obj):
+            LOG.info("Remove unknown network port: %s" % db_obj.id)
+            db_obj.delete()
 
         _alg_sync(db_objects=db_objects,
                   db_obj_key_fn=lambda obj: str(obj.id),
                   os_objects=os_objects,
                   os_obj_key_fn=lambda obj: str(obj.id),
-                  create_db_fn=self._create_flavor,
-                  update_db_fn=self._update_flavor,
-                  remove_db_fn=self._remove_flavor)
+                  create_db_fn=_create_network_port,
+                  update_db_fn=_update_network_port,
+                  remove_db_fn=_remove_network_port)
+
+
+class FlavorSyncer(Syncer):
+
+    def do(self):
+        self.do_flavors_sync()
 
     def _convert_flavor_from_os2db(self, db_obj, os_obj):
         """OpenStack flavor dict:
@@ -621,8 +600,12 @@ class FlavorSyncer(Syncer):
             'os-flavor-access:is_public': True,
             'rxtx_factor': 1.0,
             'links': [
-                {'rel': 'self', 'href': 'http://10.210.8.177:8774/v2.1/flavors/4512c284-ba72-4e74-bc8a-f27c4e3a706e'},
-                {'rel': 'bookmark', 'href': 'http://10.210.8.177:8774/flavors/4512c284-ba72-4e74-bc8a-f27c4e3a706e'}
+                {'rel': 'self',
+                 'href': 'http://10.210.8.177:8774/v2.1/flavors/4512c284-ba72-4e74-bc8a-f27c4e3a706e'
+                },
+                {'rel': 'bookmark',
+                 'href': 'http://10.210.8.177:8774/flavors/4512c284-ba72-4e74-bc8a-f27c4e3a706e'
+                }
             ]
         }
 
@@ -645,22 +628,37 @@ class FlavorSyncer(Syncer):
         db_obj.deleted = 0
         # db_obj.update_time =
 
-    def _create_flavor(self, os_obj):
-        LOG.info("Create a new flavor: %s" % os_obj.get('id'))
-        db_obj = models.Flavor()
-        self._convert_flavor_from_os2db(db_obj, os_obj)
-        # save to db:
-        db_obj.save()
+    def do_flavors_sync(self):
+        db_objects = models.Flavor.objects.all()
+        os_objects = osapi.NovaAPI.create().get_flavors()
+        os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
-    def _update_flavor(self, db_obj, os_obj):
-        LOG.info("Update existed flavor: %s" % db_obj.id)
-        self._convert_flavor_from_os2db(db_obj, os_obj)
-        # update to db:
-        db_obj.save()
+        LOG.info("Start to do flavors sync ...")
 
-    def _remove_flavor(self, db_obj):
-        LOG.info("Remove unknown flavor: %s" % db_obj.id)
-        db_obj.save()
+        def _remove_flavor(db_obj):
+            LOG.info("Remove unknown flavor: %s" % db_obj.id)
+            db_obj.save()
+
+        def _create_flavor(os_obj):
+            LOG.info("Create a new flavor: %s" % os_obj.get('id'))
+            db_obj = models.Flavor()
+            self._convert_flavor_from_os2db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
+
+        def _update_flavor(db_obj, os_obj):
+            LOG.info("Update existed flavor: %s" % db_obj.id)
+            self._convert_flavor_from_os2db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
+
+        _alg_sync(db_objects=db_objects,
+                  db_obj_key_fn=lambda obj: str(obj.id),
+                  os_objects=os_objects,
+                  os_obj_key_fn=lambda obj: str(obj.id),
+                  create_db_fn=_create_flavor,
+                  update_db_fn=_update_flavor,
+                  remove_db_fn=_remove_flavor)
 
 
 # Instance
@@ -668,21 +666,6 @@ class InstanceSyncer(Syncer):
 
     def do(self):
         self.do_instances_sync()
-
-    def do_instances_sync(self):
-        db_objects = models.Instance.objects.all()
-        os_objects = osapi.NovaAPI.create().get_servers()
-        os_objects = [os_obj.to_dict() for os_obj in os_objects]
-
-        LOG.info("Start to do instances sync ...")
-
-        _alg_sync(db_objects=db_objects,
-                  db_obj_key_fn=lambda obj: str(obj.id),
-                  os_objects=os_objects,
-                  os_obj_key_fn=lambda obj: str(obj.id),
-                  create_db_fn=self._create_instance,
-                  update_db_fn=self._update_instance,
-                  remove_db_fn=self._remove_instance)
 
     def _convert_instance_from_os2db(self, db_obj, os_obj):
         """OpenStack instance dict:
@@ -765,33 +748,46 @@ class InstanceSyncer(Syncer):
 
         db_obj.image_id = os_obj.get('image', {}).get('id')
 
-    def _create_instance(self, os_obj):
-        LOG.info("Create a new instance: %s" % os_obj.get('id'))
-        db_obj = models.Instance()
-        self._convert_instance_from_os2db(db_obj, os_obj)
-        # save to db:
-        db_obj.save()
+    def do_instances_sync(self):
+        db_objects = models.Instance.objects.all()
+        os_objects = osapi.NovaAPI.create().get_servers()
+        os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
-        # sync instance ports:
-        self._do_sync_instance_ports(db_obj.id)
+        LOG.info("Start to do instances sync ...")
 
-    def _update_instance(self, db_obj, os_obj):
-        LOG.info("Update existed instance: %s" % db_obj.id)
-        self._convert_instance_from_os2db(db_obj, os_obj)
-        # update to db:
-        db_obj.save()
+        def _remove_instance(db_obj):
+            LOG.info("Remove unknown instance: %s" % db_obj.id)
+            # remove instance ports db first
+            self._do_sync_instance_ports(db_obj.id)
+            # remove instance db:
+            db_obj.delete()
 
-        # sync instance ports:
-        self._do_sync_instance_ports(db_obj.id)
+        def _create_instance(os_obj):
+            LOG.info("Create a new instance: %s" % os_obj.get('id'))
+            db_obj = models.Instance()
+            self._convert_instance_from_os2db(db_obj, os_obj)
+            # save to db:
+            db_obj.save()
 
-    def _remove_instance(self, db_obj):
-        LOG.info("Remove unknown instance: %s" % db_obj.id)
-        # remove instance ports first
-        for db_port in models.InstancePort.objects.get(server_id=db_obj.id):
-            LOG.info("Remove unknown instance: %s port: %s" % (db_obj.id, db_port.id))
-            db_port.delete()
-        # remove instance from db:
-        db_obj.delete()
+            # sync instance ports:
+            self._do_sync_instance_ports(db_obj.id)
+
+        def _update_instance(db_obj, os_obj):
+            LOG.info("Update existed instance: %s" % db_obj.id)
+            self._convert_instance_from_os2db(db_obj, os_obj)
+            # update to db:
+            db_obj.save()
+
+            # sync instance ports:
+            self._do_sync_instance_ports(db_obj.id)
+
+        _alg_sync(db_objects=db_objects,
+                  db_obj_key_fn=lambda obj: str(obj.id),
+                  os_objects=os_objects,
+                  os_obj_key_fn=lambda obj: str(obj.id),
+                  create_db_fn=_create_instance,
+                  update_db_fn=_update_instance,
+                  remove_db_fn=_remove_instance)
 
     def _convert_instance_port_from_os2db(self, server_id, db_obj, os_obj):
         """OpenStack Instance Interface dict:
