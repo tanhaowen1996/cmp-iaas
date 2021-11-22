@@ -479,3 +479,58 @@ class VolumeType(models.Model, OpenstackMixin):
 
     class Meta:
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
+
+
+class Instance(models.Model, OpenstackMixin):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=36, blank=True, null=True)
+    flavor = models.CharField(max_length=36, blank=True, null=True)
+    flavor_id = models.CharField(max_length=36, blank=True, null=True)
+    ip_intranet = models.CharField(max_length=20, blank=True, null=True)
+    ip_internet = models.CharField(max_length=20, blank=True, null=True)
+    update_time = models.DateTimeField(blank=True, null=True)
+    deleted = models.SmallIntegerField(blank=True, null=True)
+    status = models.CharField(max_length=10, blank=True, null=True)
+    updater_id = models.CharField(max_length=36, blank=True, null=True)
+    updater_name = models.CharField(max_length=36, blank=True, null=True)
+    tenant_id = models.CharField(max_length=36, blank=True, null=True)
+    tenant_name = models.CharField(max_length=36, blank=True, null=True)
+    admin_password = models.CharField(max_length=50, blank=True, null=True)
+    keypair_id = models.CharField(max_length=36, blank=True, null=True)
+    keypair_name = models.CharField(max_length=255, blank=True, null=True)
+    project_id = models.CharField(max_length=36, blank=True, null=True)
+    os_type = models.CharField(max_length=20, blank=True, null=True)
+    creator_id = models.CharField(max_length=36, blank=True, null=True)
+    creator_name = models.CharField(max_length=36, blank=True, null=True)
+    image_id = models.UUIDField(blank=True, null=True)
+
+    class Meta:
+        # managed = False
+        db_table = 'cvm_instance'
+
+
+class Flavor(models.Model):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=36, blank=True, null=True)
+    memory = models.BigIntegerField(blank=True, null=True)
+    cpu = models.IntegerField(blank=True, null=True)
+    disk = models.BigIntegerField(blank=True, null=True)
+    creator_id = models.CharField(max_length=36, blank=True, null=True)
+    deleted = models.SmallIntegerField(blank=True, null=True)
+    update_time = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        # managed = False
+        db_table = 'cvm_flavor'
+
+
+class InstancePort(models.Model):
+    id = models.UUIDField(primary_key=True)
+    server_id = models.UUIDField(blank=True, null=True)
+    port_id = models.UUIDField(blank=True, null=True)
+    created = models.DateTimeField(blank=True, null=True)
+    modified = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        # managed = False
+        db_table = 'cvm_port'
