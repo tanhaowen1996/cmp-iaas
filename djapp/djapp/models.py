@@ -29,21 +29,19 @@ class Network(models.Model, OpenstackMixin):
         default=list,
         verbose_name=_('tenant obj list with id & name'))
     name = models.CharField(
-        max_length=20,
-        unique=True,
+        max_length=255,
         verbose_name=_('network name'))
-    cidr = CidrAddressField(
-        unique=True)
+    cidr = CidrAddressField()
     total_interface = models.PositiveIntegerField()
     vlan_id = models.PositiveSmallIntegerField(
         unique=True)
     category = models.CharField(
         choices=CATEGORY_CHOICES,
-        max_length=20)
+        max_length=255)
     is_shared = models.BooleanField()
     description = models.CharField(
         blank=True,
-        max_length=50)
+        max_length=255)
     creater = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT)
@@ -112,10 +110,8 @@ class Port(models.Model, OpenstackMixin):
         on_delete=models.CASCADE)
     name = models.CharField(
         max_length=20,
-        unique=True,
         verbose_name=_('port name'))
-    ip_address = InetAddressField(
-        unique=True)
+    ip_address = InetAddressField()
     mac_address = MACAddressField(
         unique=True)
     is_external = models.BooleanField()
@@ -483,25 +479,25 @@ class VolumeType(models.Model, OpenstackMixin):
 
 class Instance(models.Model, OpenstackMixin):
     id = models.UUIDField(primary_key=True)
-    name = models.CharField(max_length=36, blank=True, null=True)
-    flavor = models.CharField(max_length=36, blank=True, null=True)
-    flavor_id = models.CharField(max_length=36, blank=True, null=True)
-    ip_intranet = models.CharField(max_length=20, blank=True, null=True)
-    ip_internet = models.CharField(max_length=20, blank=True, null=True)
+    name = models.CharField(max_length=255, blank=True, null=True)
+    flavor = models.CharField(max_length=255, blank=True, null=True)
+    flavor_id = models.CharField(max_length=255, blank=True, null=True)
+    ip_intranet = models.CharField(max_length=255, blank=True, null=True)
+    ip_internet = models.CharField(max_length=255, blank=True, null=True)
     update_time = models.DateTimeField(blank=True, null=True)
     deleted = models.SmallIntegerField(blank=True, null=True)
-    status = models.CharField(max_length=10, blank=True, null=True)
-    updater_id = models.CharField(max_length=36, blank=True, null=True)
-    updater_name = models.CharField(max_length=36, blank=True, null=True)
-    tenant_id = models.CharField(max_length=36, blank=True, null=True)
-    tenant_name = models.CharField(max_length=36, blank=True, null=True)
-    admin_password = models.CharField(max_length=50, blank=True, null=True)
-    keypair_id = models.CharField(max_length=36, blank=True, null=True)
+    status = models.CharField(max_length=255, blank=True, null=True)
+    updater_id = models.CharField(max_length=255, blank=True, null=True)
+    updater_name = models.CharField(max_length=255, blank=True, null=True)
+    tenant_id = models.CharField(max_length=255, blank=True, null=True)
+    tenant_name = models.CharField(max_length=255, blank=True, null=True)
+    admin_password = models.CharField(max_length=255, blank=True, null=True)
+    keypair_id = models.CharField(max_length=255, blank=True, null=True)
     keypair_name = models.CharField(max_length=255, blank=True, null=True)
-    project_id = models.CharField(max_length=36, blank=True, null=True)
-    os_type = models.CharField(max_length=20, blank=True, null=True)
-    creator_id = models.CharField(max_length=36, blank=True, null=True)
-    creator_name = models.CharField(max_length=36, blank=True, null=True)
+    project_id = models.CharField(max_length=255, blank=True, null=True)
+    os_type = models.CharField(max_length=255, blank=True, null=True)
+    creator_id = models.CharField(max_length=255, blank=True, null=True)
+    creator_name = models.CharField(max_length=255, blank=True, null=True)
     image_id = models.UUIDField(blank=True, null=True)
 
     class Meta:
@@ -511,11 +507,11 @@ class Instance(models.Model, OpenstackMixin):
 
 class Flavor(models.Model):
     id = models.UUIDField(primary_key=True)
-    name = models.CharField(max_length=36, blank=True, null=True)
+    name = models.CharField(max_length=255, blank=True, null=True)
     memory = models.BigIntegerField(blank=True, null=True)
     cpu = models.IntegerField(blank=True, null=True)
     disk = models.BigIntegerField(blank=True, null=True)
-    creator_id = models.CharField(max_length=36, blank=True, null=True)
+    creator_id = models.CharField(max_length=255, blank=True, null=True)
     deleted = models.SmallIntegerField(blank=True, null=True)
     update_time = models.DateTimeField(blank=True, null=True)
 

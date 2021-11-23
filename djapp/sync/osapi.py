@@ -218,10 +218,13 @@ class NeutronAPI(object):
         return self.client.list_subnets(retrieve_all=True).get('subnets', [])
 
     def get_subnet(self, subnet_id):
-        return self.client.show_subnet(subnet_id)
+        return self.client.show_subnet(subnet_id).get('subnet', {})
 
-    def get_ports(self):
-        return self.client.list_ports(retrieve_all=True).get('ports', [])
+    def get_ports(self, network_id=None):
+        params = {}
+        if network_id:
+            params['network_id'] = network_id
+        return self.client.list_ports(**params).get('ports', [])
 
 
 if __name__ == '__main__':
@@ -296,10 +299,19 @@ if __name__ == '__main__':
             print("", port)
         print('----------------------------------')
 
+    def test_port():
+        neutron_api = NeutronAPI.create()
+        network_id = 'f6492197-1ab6-4b15-95ff-2b9449beda7d'
+        # network_id = None
+
+        for port in neutron_api.get_ports(network_id):
+            print(port)
+
     # test_image()
-    test_instance()
+    # test_instance()
     # test_volume()
-    # test_network()
+    test_network()
+    # test_port()
 
     def test_keypair():
         nova_api = NovaAPI.create()
