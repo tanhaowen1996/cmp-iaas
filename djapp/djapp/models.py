@@ -174,6 +174,14 @@ class Keypair(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
+    rel_user_id = models.CharField(
+        blank=True,
+        max_length=255
+    )
+    rel_user_name = models.CharField(
+        null=True,
+        max_length=255
+    )
     tenant_id = models.CharField(
         null=True,
         max_length=255
@@ -213,7 +221,7 @@ class Keypair(models.Model, OpenstackMixin):
         return self.id
 
     class Meta:
-        unique_together = ('name', 'project_id')
+        unique_together = ('name', 'rel_user_id')
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
 
     @classmethod
@@ -348,6 +356,14 @@ class Volume(models.Model, OpenstackMixin):
         max_length=255
     )
     user_name = models.CharField(
+        null=True,
+        max_length=255
+    )
+    rel_user_id = models.CharField(
+        blank=True,
+        max_length=255
+    )
+    rel_user_name = models.CharField(
         null=True,
         max_length=255
     )
@@ -501,7 +517,6 @@ class Instance(models.Model, OpenstackMixin):
     image_id = models.UUIDField(blank=True, null=True)
 
     class Meta:
-        # managed = False
         db_table = 'cvm_instance'
 
 
@@ -516,7 +531,6 @@ class Flavor(models.Model):
     update_time = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        # managed = False
         db_table = 'cvm_flavor'
 
 
@@ -528,5 +542,4 @@ class InstancePort(models.Model):
     modified = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        # managed = False
         db_table = 'cvm_port'

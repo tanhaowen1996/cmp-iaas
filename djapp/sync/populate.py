@@ -1,10 +1,66 @@
 import abc
 import logging
 
+from django.contrib.auth.models import User
+from django.utils import timezone
+
 from djapp import models
+
 from . import osapi
+from . import uumapi
 
 LOG = logging.getLogger(__name__)
+
+_UUM_API = None
+_NOVA_API = None
+_CINDER_API = None
+_NEUTRON_API = None
+_GLANCE_API = None
+
+
+def uum_api():
+    global _UUM_API
+
+    if not _UUM_API:
+        _UUM_API = uumapi.UumAPI.create()
+
+    return _UUM_API
+
+
+def nova_api():
+    global _NOVA_API
+
+    if not _NOVA_API:
+        _NOVA_API = osapi.NovaAPI.create()
+
+    return _NOVA_API
+
+
+def glance_api():
+    global _GLANCE_API
+
+    if not _GLANCE_API:
+        _GLANCE_API = osapi.GlanceAPI.create()
+
+    return _GLANCE_API
+
+
+def cinder_api():
+    global _CINDER_API
+
+    if not _CINDER_API:
+        _CINDER_API = osapi.CinderAPI.create()
+
+    return _CINDER_API
+
+
+def neutron_api():
+    global _NEUTRON_API
+
+    if not _NEUTRON_API:
+        _NEUTRON_API = osapi.NeutronAPI.create()
+
+    return _NEUTRON_API
 
 
 class SyncPass(Exception):
@@ -67,14 +123,12 @@ class Syncer(object):
 
 
 # Image
-class ImageSyncer(Syncer):
+class ImageSyncer:
     """Do Images Sync from OpenStack.
     """
 
-    def do(self):
-        self.do_sync_images()
-
-    def _convert_image_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_image_from_os2db(db_obj, os_obj, user=None, project=None):
         """
         OpenStack Image Model:
         {
@@ -117,23 +171,30 @@ class ImageSyncer(Syncer):
         db_obj.owner = os_obj.get('owner')
         db_obj.disk_format = os_obj.get('disk_format')
         db_obj.container_format = os_obj.get('container_format')
-        os_obj.visibility = os_obj.get('visibility')
+        db_obj.visibility = os_obj.get('visibility')
 
         db_obj.created_at = os_obj.get('created_at')
         db_obj.updated_at = os_obj.get('updated_at')
 
-        # TODO:
-        user_name = 'admin'
-        user_id = 'f4e124ef1eea4ad8bf3c6e0983275dad'
-        tenant_id = '752df3ea70724f44acc088a0f0313579',
-        tenant_name = '大科技'
+        if user:
+            db_obj.user_name = user.get('userName')
+            db_obj.user_id = user.get('userId')
 
-    def do_sync_images(self):
+        if project:
+            db_obj.tenant_id = project.get('tenantId')
+            db_obj.tenant_name = project.get('tenantName')
+
+    @staticmethod
+    def do_images_sync(user=None, project=None):
         """Sync db objects with openstack information."""
-        db_objects = models.Image.objects.all()
-        os_objects = osapi.GlanceAPI.create().get_images()
+        project_id = project.get('id') if project else osapi.get_project_id()
+        # filter by project_id
+        db_objects = models.Image.objects.filter(owner=project_id)
+        os_objects = glance_api().get_images()
+        os_objects = [os_obj for os_obj in os_objects
+                      if os_obj.get('owner') == project_id]
 
-        LOG.info("Start to syncing Images ...")
+        LOG.info("Start to syncing Images of project: %s ..." % project_id)
 
         def _remove_image(db_obj):
             LOG.info("Remove Unknown Image: %s" % db_obj)
@@ -143,13 +204,13 @@ class ImageSyncer(Syncer):
             LOG.info("Create a new image: %s" % os_obj.get('id'))
             # create db obj:
             db_obj = models.Image()
-            self._convert_image_from_os2db(db_obj, os_obj)
+            ImageSyncer._convert_image_from_os2db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
         def _update_image(db_obj, os_obj):
             LOG.info("Update existed image: %s" % db_obj.id)
-            self._convert_image_from_os2db(db_obj, os_obj)
+            ImageSyncer._convert_image_from_os2db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
@@ -163,13 +224,10 @@ class ImageSyncer(Syncer):
 
 
 # KeyPair
-class KeyPairSyncer(Syncer):
+class KeyPairSyncer:
 
-    def do(self):
-        # TODO: now only admin's key pairs to be synced
-        self.do_key_pairs_sync()
-
-    def _convert_keypair_from_os2_db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_keypair_from_os2_db(db_obj, os_obj, user=None, project=None):
         """OpenStack keypair dict:
         {
             'name': '111',
@@ -184,23 +242,32 @@ class KeyPairSyncer(Syncer):
         db_obj.public_key = os_obj.public_key
         db_obj.type = os_obj.type
 
-        db_obj.project_id = osapi.get_project_id()
-        db_obj.user_id = osapi.get_user_id()
+        if project:
+            db_obj.project_id = project.get('id')
 
-        # user_name
+            db_obj.tenant_id = project.get('tenantId')
+            db_obj.tenant_name = project.get('tenantName')
 
-        # tenant_id
-        # tenant_name
+        if user:
+            # uum user:
+            db_obj.user_id = user.get('userId')
+            db_obj.user_name = user.get('userName')
+            # openstack user:
+            db_obj.rel_user_id = user.get("relUserId")
+            db_obj.rel_user_name = user.get("relUserName")
 
         # created_at
         # updated_at
 
-    def do_key_pairs_sync(self):
+    @staticmethod
+    def do_key_pairs_sync(user=None, project=None):
         """Sync db objects with openstack information."""
-        db_objects = models.Keypair.objects.all()
-        os_objects = osapi.NovaAPI.create().get_keypairs()
+        rel_user_id = user.get('relUserId') if user else osapi.get_user_id()
+        # filter by openstack user id:
+        db_objects = models.Keypair.objects.filter(rel_user_id=rel_user_id)
+        os_objects = nova_api().get_user_keypairs(user_id=rel_user_id)
 
-        LOG.info("Start to syncing Keypairs ...")
+        LOG.info("Start to syncing Keypairs for user: %s ..." % rel_user_id)
 
         def _remove_keypair(db_obj):
             LOG.info("Remove unknown keypair %s" % db_obj.name)
@@ -209,13 +276,13 @@ class KeyPairSyncer(Syncer):
         def _create_keypair(os_obj):
             LOG.info("Create a new keypair: %s" % os_obj)
             db_obj = models.Keypair()
-            self._convert_keypair_from_os2_db(db_obj, os_obj)
+            KeyPairSyncer._convert_keypair_from_os2_db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
         def _update_keypair(db_obj, os_obj):
             LOG.info("Update existed keypair %s from %s" % (db_obj.name, os_obj.name))
-            self._convert_keypair_from_os2_db(db_obj, os_obj)
+            KeyPairSyncer._convert_keypair_from_os2_db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
@@ -229,13 +296,10 @@ class KeyPairSyncer(Syncer):
 
 
 # Volume
-class VolumeSyncer(Syncer):
+class VolumeSyncer:
 
-    def do(self):
-        self.do_volume_types_sync()
-        self.do_volumes_sync()
-
-    def _convert_volume_type_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_volume_type_from_os2db(db_obj, os_obj):
         """OpenStack volume type to_dict:
         {
             'id': '267115ef-e790-48f8-af29-f3e4b21d2c4a',
@@ -254,7 +318,8 @@ class VolumeSyncer(Syncer):
         # db_obj.created_at
         # db_obj.updated_at
 
-    def do_volume_types_sync(self):
+    @staticmethod
+    def do_volume_types_sync():
         db_objects = models.VolumeType.objects.all()
         os_objects = osapi.CinderAPI.create().get_volume_types()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
@@ -268,13 +333,13 @@ class VolumeSyncer(Syncer):
         def _create_volume_type(os_obj):
             LOG.info("Create a new volume type: %s" % os_obj['id'])
             db_obj = models.VolumeType()
-            self._convert_volume_type_from_os2db(db_obj, os_obj)
+            VolumeSyncer._convert_volume_type_from_os2db(db_obj, os_obj)
             # save to db:
             db_obj.save()
 
         def _update_volume_type(db_obj, os_obj):
             LOG.info("Update existed volume type: %s" % db_obj.id)
-            self._convert_volume_type_from_os2db(db_obj, os_obj)
+            VolumeSyncer._convert_volume_type_from_os2db(db_obj, os_obj)
             # update to db
             db_obj.save()
 
@@ -286,7 +351,8 @@ class VolumeSyncer(Syncer):
                   update_db_fn=_update_volume_type,
                   remove_db_fn=_remove_volume_type)
 
-    def _convert_volume_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_volume_from_os2db(db_obj, os_obj, user=None, project=None):
         """ OpenStack Volume to_dict:
         {
             'id': 'acc5260b-af73-4295-9439-f7bf406bf104',
@@ -332,10 +398,17 @@ class VolumeSyncer(Syncer):
         db_obj.description = os_obj.get('description')
         db_obj.project_id = os_obj.get('os-vol-tenant-attr:tenant_id')
 
-        # db_obj.user_id
-        # db_obj.user_name
-        # db_obj.tenant_id
-        # db_obj.tenant_name
+        if user:
+            # UUM user:
+            db_obj.user_id = user.get('userId')
+            db_obj.user_name = user.get('userName')
+            # OpenStack user:
+            db_obj.rel_user_id = user.get('relUserId')
+            db_obj.rel_user_name = user.get('relUserName')
+
+        if project:
+            db_obj.tenant_id = project.get('tenantId')
+            db_obj.tenant_name = project.get('tenantName')
 
         # db_obj.volume_used
 
@@ -361,15 +434,18 @@ class VolumeSyncer(Syncer):
         db_obj.attachments = attachments
         db_obj.cluster_name = os_obj.get('os-vol-host-attr:host')
 
-        # db_obj.created_at = os_obj.get('created_at')
-        # db_obj.updated_at = os_obj.get('updated_at')
+        db_obj.created_at = timezone.now()
+        db_obj.updated_at = timezone.now()
 
-    def do_volumes_sync(self):
-        db_objects = models.Volume.objects.all()
-        os_objects = osapi.CinderAPI.create().get_volumes()
+    @staticmethod
+    def do_volumes_sync(user=None, project=None):
+        project_id = project.get('id') if project else osapi.get_project_id()
+        # get project volumes:
+        db_objects = models.Volume.objects.filter(project_id=project_id)
+        os_objects = osapi.CinderAPI.create().get_volumes(project_id=project_id)
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
-        LOG.info("Start to syncing Volumes ...")
+        LOG.info("Start to syncing Volumes for project: %s ..." % project_id)
 
         def _remove_volume(db_obj):
             LOG.info("Remove unknown volume: %s" % db_obj.id)
@@ -378,13 +454,13 @@ class VolumeSyncer(Syncer):
         def _create_volume(os_obj):
             LOG.info("Create a new volume: %s" % os_obj.get('id'))
             db_obj = models.Volume()
-            self._convert_volume_from_os2db(db_obj, os_obj)
+            VolumeSyncer._convert_volume_from_os2db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
         def _update_volume(db_obj, os_obj):
             LOG.info("Update existed volume: %s" % db_obj.id)
-            self._convert_volume_from_os2db(db_obj, os_obj)
+            VolumeSyncer._convert_volume_from_os2db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
@@ -398,12 +474,10 @@ class VolumeSyncer(Syncer):
 
 
 # Network/Subnet/Port
-class NetworkSyncer(Syncer):
+class NetworkSyncer:
 
-    def do(self):
-        self.do_networks_sync()
-
-    def _convert_network_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_network_from_os2db(db_obj, os_obj, user, project):
         """OpenStack network dict:
         {
             'id': '275d3a55-bb1c-41a5-bc41-d1b286681e58',
@@ -465,65 +539,72 @@ class NetworkSyncer(Syncer):
 
         db_obj.os_subnet_id = subnets[0]
 
-        subnet = osapi.NeutronAPI.create().get_subnet(db_obj.os_subnet_id)
+        subnet = neutron_api().get_subnet(db_obj.os_subnet_id)
         cidr = subnet.get('cidr')
         if not cidr:
             raise SyncPass("CIDR is empty!")
         db_obj.cidr = cidr
 
+        cidr_num = int(cidr.split('/')[1])
+        num_addresses = pow(2, 32 - cidr_num)
+        db_obj.total_interface = num_addresses - 2
+
         # db_obj.tenants =
+        db_obj.category = models.Network.CATEGORY_CLUSTER
 
         db_obj.name = os_obj.get('name')
-        # TODO: total_interface set 0
-        db_obj.total_interface = 0
         db_obj.vlan_id = os_obj.get('provider:segmentation_id')
-        # db_obj.category =
         db_obj.is_shared = os_obj.get('shared')
 
-        # TODO: creater_id is django's user
-        db_obj.creater_id = '1'
+        db_obj.creater_id = user.get('userId')
 
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
-    def _do_network_total_interface_sync(self, db_obj):
+    @staticmethod
+    def _do_network_total_interface_sync(db_obj):
         ports = models.Port.objects.filter(network_id=db_obj.id)
         db_obj.total_interface = len([_ for _ in ports])
         db_obj.save()
 
-    def do_networks_sync(self):
-        db_objects = models.Network.objects.all()
-        os_objects = osapi.NeutronAPI.create().get_networks()
+    @staticmethod
+    def do_networks_sync(user, project):
+        # user and project are required
+        user_id, project_id = user.get('userId'), project.get('id')
+        # filter by user_id and project_id
+        db_objects = models.Network.objects.filter(creater_id=user_id)
+        os_objects = osapi.NeutronAPI.create().get_networks(tenant_id=project_id)
 
-        LOG.info("Start to syncing Networks ...")
+        LOG.info("Start to syncing Networks for user: %s to project: %s..."
+                 % (user_id, project_id))
 
         def _remove_network(db_obj):
             LOG.info("Remove unknown network: %s" % db_obj.id)
             # remove network ports first:
-            self._do_network_ports_sync(db_obj.id)
+            NetworkSyncer._do_network_ports_sync(db_obj.id)
             # remove network db:
             db_obj.delete()
 
         def _create_network(os_obj):
             LOG.info("Create a new network: %s" % os_obj.get('id'))
             db_obj = models.Network()
-            self._convert_network_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_network_from_os2db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
             # sync network ports:
-            self._do_network_ports_sync(db_obj.id)
-            self._do_network_total_interface_sync(db_obj)
+            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            # NetworkSyncer._do_network_total_interface_sync(db_obj)
 
         def _update_network(db_obj, os_obj):
             LOG.info("Update existed network: %s" % db_obj.id)
-            self._convert_network_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_network_from_os2db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
             # sync network ports:
-            self._do_network_ports_sync(db_obj.id)
-            self._do_network_total_interface_sync(db_obj)
+            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            # NetworkSyncer._do_network_total_interface_sync(db_obj)
 
         _alg_sync(db_objects=db_objects,
                   db_obj_key_fn=lambda obj: str(obj.id),
@@ -533,7 +614,8 @@ class NetworkSyncer(Syncer):
                   update_db_fn=_update_network,
                   remove_db_fn=_remove_network)
 
-    def _convert_port_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_port_from_os2db(db_obj, os_obj):
         """OpenStack port dict:
         {
             'id': '0779769c-3420-42e7-aecc-3faa69c9d285',
@@ -575,7 +657,8 @@ class NetworkSyncer(Syncer):
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
-    def _do_network_ports_sync(self, network_id):
+    @staticmethod
+    def _do_network_ports_sync(network_id):
         db_objects = models.Port.objects.filter(network_id=network_id)
         os_objects = osapi.NeutronAPI.create().get_ports(network_id=network_id)
 
@@ -584,13 +667,13 @@ class NetworkSyncer(Syncer):
         def _create_network_port(os_obj):
             LOG.info("Create a network: %s port: %s" % (network_id, os_obj.get('id')))
             db_obj = models.Port()
-            self._convert_port_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj)
             # save to db:
             db_obj.save()
 
         def _update_network_port(db_obj, os_obj):
             LOG.info("Update existed network: %s port: %s" % (network_id, db_obj.id))
-            self._convert_port_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj)
             # update to db:
             db_obj.save()
 
@@ -607,12 +690,10 @@ class NetworkSyncer(Syncer):
                   remove_db_fn=_remove_network_port)
 
 
-class FlavorSyncer(Syncer):
+class FlavorSyncer:
 
-    def do(self):
-        self.do_flavors_sync()
-
-    def _convert_flavor_from_os2db(self, db_obj, os_obj, is_public=True):
+    @staticmethod
+    def _convert_flavor_from_os2db(db_obj, os_obj, is_public=True):
         """OpenStack flavor dict:
         {
             'id': '4512c284-ba72-4e74-bc8a-f27c4e3a706e',
@@ -656,12 +737,13 @@ class FlavorSyncer(Syncer):
         db_obj.deleted = 0
         # db_obj.update_time =
 
-    def do_flavors_sync(self):
+    @staticmethod
+    def do_flavors_sync():
         db_objects = models.Flavor.objects.all()
         os_objects = osapi.NovaAPI.create().get_flavors()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
-        LOG.info("Start to syncing Flavors ...")
+        LOG.info("Start to syncing all public Flavors ...")
 
         def _remove_flavor(db_obj):
             LOG.info("Remove unknown flavor: %s" % db_obj.id)
@@ -670,13 +752,13 @@ class FlavorSyncer(Syncer):
         def _create_flavor(os_obj):
             LOG.info("Create a new flavor: %s" % os_obj.get('id'))
             db_obj = models.Flavor()
-            self._convert_flavor_from_os2db(db_obj, os_obj)
+            FlavorSyncer._convert_flavor_from_os2db(db_obj, os_obj)
             # save to db:
             db_obj.save()
 
         def _update_flavor(db_obj, os_obj):
             LOG.info("Update existed flavor: %s" % db_obj.id)
-            self._convert_flavor_from_os2db(db_obj, os_obj)
+            FlavorSyncer._convert_flavor_from_os2db(db_obj, os_obj)
             # update to db:
             db_obj.save()
 
@@ -690,12 +772,10 @@ class FlavorSyncer(Syncer):
 
 
 # Instance
-class InstanceSyncer(Syncer):
+class InstanceSyncer:
 
-    def do(self):
-        self.do_instances_sync()
-
-    def _convert_instance_from_os2db(self, db_obj, os_obj):
+    @staticmethod
+    def _convert_instance_from_os2db(db_obj, os_obj, user=None, project=None):
         """OpenStack instance dict:
         {
             'id': '30a9c89f-2d43-45e0-b499-94c5bf70389c',
@@ -748,39 +828,66 @@ class InstanceSyncer(Syncer):
         """
         db_obj.id = os_obj.get('id')
         db_obj.name = os_obj.get('name')
-        # db_obj.flavor =
-        # db_obj.flavor_id =
+
+        flavor = os_obj.get('flavor', {})
+        flavor_name = flavor.get('original_name')
+
+        # get flavor detail info:
+        os_flavor = nova_api().get_flavor_by_name(flavor_name)
+        if not os_flavor:
+            LOG.warning("get flavor by name: %s failed!" % flavor_name)
+        else:
+            db_obj.flavor_id = os_flavor.get('id')
+
+        db_obj.flavor = flavor_name
 
         # db_obj.ip_intranet =
         # db_obj.ip_internet =
 
-        # db.updater_id =
-        # db.updater_name =
-        db_obj.update_time = os_obj.get('updated')
-        db_obj.deleted = 0
         db_obj.status = os_obj.get('status')
 
-        db_obj.tenant_id = os_obj.get('tenant_id')
-        # db_obj.tenant_name
+        if project:
+            db_obj.tenant_id = project.get('tenantId')
+            db_obj.tenant_name = project.get('tenantName')
 
         # db_obj.admin_password
 
-        # db_obj.keypair_id =
-        db_obj.keypair_name = os_obj.get('key_name')
+        user_id = os_obj.get('user_id')
+        key_name = os_obj.get('key_name')
+
+        keypair = nova_api().get_user_keypair_by_name(
+            user_id=user_id, name=key_name)
+        if keypair:
+            db_obj.keypair_id = keypair.get('id')
+        else:
+            LOG.warning("Get keypair: %s for user: %s failed..." % (key_name, user_id))
+
+        db_obj.keypair_name = key_name
+
         db_obj.project_id = os_obj.get('tenant_id')
-
-        # db_obj.os_type =
-
-        # db_obj.creator_id
-        # db_obj.creator_name
 
         image = os_obj.get('image', {})
         if isinstance(image, dict):
-            db_obj.image_id = image.get('id')
+            image_id = image.get('id')
+            # get image detail info:
+            image = glance_api().get_image(image_id)
+            if image:
+                db_obj.os_type = image.get('os_type')
+            else:
+                LOG.warning("Get image: %s failed..." % image_id)
+            db_obj.image_id = image_id
 
-    def do_instances_sync(self):
+        # // db.updater_id =
+        # // db.updater_name =
+        # // db_obj.creator_id
+        # // db_obj.creator_name
+        # db_obj.update_time = os_obj.get('updated')
+        # db_obj.deleted = 0
+
+    @staticmethod
+    def do_instances_sync(user=None, project=None):
         db_objects = models.Instance.objects.all()
-        os_objects = osapi.NovaAPI.create().get_servers()
+        os_objects = nova_api().get_servers()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
         LOG.info("Start to syncing Instances ...")
@@ -788,28 +895,28 @@ class InstanceSyncer(Syncer):
         def _remove_instance(db_obj):
             LOG.info("Remove unknown instance: %s" % db_obj.id)
             # remove instance ports db first
-            self._do_sync_instance_ports(db_obj.id)
+            InstanceSyncer._do_sync_instance_ports(db_obj.id)
             # remove instance db:
             db_obj.delete()
 
         def _create_instance(os_obj):
             LOG.info("Create a new instance: %s" % os_obj.get('id'))
             db_obj = models.Instance()
-            self._convert_instance_from_os2db(db_obj, os_obj)
+            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj)
             # save to db:
             db_obj.save()
 
             # sync instance ports:
-            self._do_sync_instance_ports(db_obj.id)
+            InstanceSyncer._do_sync_instance_ports(db_obj.id)
 
         def _update_instance(db_obj, os_obj):
             LOG.info("Update existed instance: %s" % db_obj.id)
-            self._convert_instance_from_os2db(db_obj, os_obj)
+            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj)
             # update to db:
             db_obj.save()
 
             # sync instance ports:
-            self._do_sync_instance_ports(db_obj.id)
+            InstanceSyncer._do_sync_instance_ports(db_obj.id)
 
         _alg_sync(db_objects=db_objects,
                   db_obj_key_fn=lambda obj: str(obj.id),
@@ -819,7 +926,8 @@ class InstanceSyncer(Syncer):
                   update_db_fn=_update_instance,
                   remove_db_fn=_remove_instance)
 
-    def _convert_instance_port_from_os2db(self, server_id, db_obj, os_obj):
+    @staticmethod
+    def _convert_instance_port_from_os2db(server_id, db_obj, os_obj):
         """OpenStack Instance Interface dict:
         {
             'net_id': '92a1cbed-a8e7-4c67-aaab-76fa67b6ea5f',
@@ -838,7 +946,8 @@ class InstanceSyncer(Syncer):
         # db_obj.created
         # db_obj.modified
 
-    def _do_sync_instance_ports(self, server_id):
+    @staticmethod
+    def _do_sync_instance_ports(server_id):
         db_objects = models.InstancePort.objects.filter(server_id=server_id)
         os_objects = osapi.NovaAPI.create().get_server_interfaces(server_id)
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
@@ -848,13 +957,13 @@ class InstanceSyncer(Syncer):
         def _create_instance_port(os_obj):
             LOG.info("Create instance: %s port: %s" % (server_id, os_obj.get('port_id')))
             db_obj = models.InstancePort()
-            self._convert_instance_port_from_os2db(server_id, db_obj, os_obj)
+            InstanceSyncer._convert_instance_port_from_os2db(server_id, db_obj, os_obj)
             # save to db:
             db_obj.save()
 
         def _update_instance_port(db_obj, os_obj):
             LOG.info("Update existed instance: %s port: %s" % (server_id, db_obj.id))
-            self._convert_instance_port_from_os2db(server_id, db_obj, os_obj)
+            InstanceSyncer._convert_instance_port_from_os2db(server_id, db_obj, os_obj)
             # update to db:
             db_obj.save()
 
@@ -871,34 +980,100 @@ class InstanceSyncer(Syncer):
                   remove_db_fn=_remove_instance_port)
 
 
+class UserSyncer(Syncer):
+
+    def __init__(self):
+        self.synced_projects = set()
+
+    def do(self):
+        LOG.info("Start ...")
+        self.do_admin_sync()
+        self.do_tenants_sync_from_uum()
+        LOG.info("Done ...")
+
+    def _make_os_admin_user_info(self):
+        admin_user_id = osapi.get_user_id()
+        admin_project_id = osapi.get_project_id()
+        return {
+            'userId': -1,
+            'userName': "admin_syncer",
+            "relUserId": admin_user_id,
+            "relUserName": "admin",
+            "project": [{
+                "id": admin_project_id,
+                "name": "admin",
+                "tenantId": admin_project_id,
+                "tenantName": "admin"
+            }]
+        }
+
+    def _create_auth_user(self, user):
+        user_id = user.get('userId')
+        user_name = user.get('userName')
+        LOG.info("Create Auth user: %s / %s" % (user_id, user_name))
+        # save to db:
+        User.objects.get_or_create(
+            id=user_id,
+            defaults={'username': user_name})
+
+    def do_admin_sync(self):
+        LOG.info("Start sync admin resources ...")
+
+        admin_user = self._make_os_admin_user_info()
+        admin_project = admin_user.get('project')[0]
+        # make admin syncer auth user:
+        self._create_auth_user(admin_user)
+
+        # Flavors
+        FlavorSyncer.do_flavors_sync()
+        # Volume types
+        VolumeSyncer.do_volume_types_sync()
+        # Images
+        ImageSyncer.do_images_sync(admin_user, admin_project)
+        # Networks
+        NetworkSyncer.do_networks_sync(admin_user, admin_project)
+
+    def do_tenants_sync_from_uum(self):
+        users = uum_api().get_users()
+
+        for user in users:
+            LOG.info("Start sync resource for user: %s / %s"
+                     % (user.get('userId'), user.get('userName')))
+            self._create_auth_user(user)
+            self._sync_user_resource(user)
+
+    def _sync_user_resource(self, user):
+        projects = user.get('project', [])
+        LOG.info("Got %s projects from user: %s" % (len(projects), user.get('userId')))
+        for project in projects:
+            project_id = project.get('id')
+            if project_id in self.synced_projects:
+                LOG.warning("Resources of project: %s already synced, pass to it ..." % project_id)
+                continue
+            self._sync_user_project_resource(user, project)
+            # record synced project info
+            self.synced_projects.add(project_id)
+
+    def _sync_user_project_resource(self, user, project):
+        LOG.info("Start sync resources of project: %s / %s for user: %s"
+                 % (project.get('id'), project.get('name'), user.get('userId')))
+
+        # Images
+        ImageSyncer.do_images_sync(user, project)
+        # Flavors pass ...
+        # Networks
+        NetworkSyncer.do_networks_sync(user, project)
+        # Keypairs
+        KeyPairSyncer.do_key_pairs_sync(user, project)
+        # Instances
+        InstanceSyncer.do_instances_sync(user, project)
+        # Volumes
+        VolumeSyncer.do_volumes_sync(user, project)
+
+
 def do_all_sync():
-    # image_sync = ImageSyncer()
-    # image_sync.do()
-
-    # key_pair_sync = KeyPairSyncer()
-    # key_pair_sync.do()
-
-    # network_sync = NetworkSyncer()
-    # network_sync.do()
-
-    # flavor_sync = FlavorSyncer()
-    # flavor_sync.do()
-
-    # instance_sync = InstanceSyncer()
-    # instance_sync.do()
-
-    LOG.info("Do sync starting...")
-
-    for cls in Syncer.__subclasses__():
-        LOG.info('================================================')
-        LOG.info('================================================')
-        LOG.info('Start %s ...' % cls.__name__)
-        try:
-            cls().do()
-        except Exception as e:
-            LOG.exception(e)
-
-    LOG.info("Do sync done ...")
+    user_sync = UserSyncer()
+    user_sync.do()
 
 
 if __name__ == '__main__':

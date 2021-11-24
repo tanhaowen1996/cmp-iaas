@@ -124,17 +124,33 @@ class NovaAPI(object):
     def get_server_interfaces(self, instance_id):
         return self.client.servers.interface_list(instance_id)
 
-    def get_flavors(self):
-        return self.client.flavors.list()
+    def get_flavors(self, is_public=True):
+        return self.client.flavors.list(is_public=is_public)
 
     def get_flavor_access(self, flavor_id):
         return self.client.flavor_access.list(flavor=flavor_id)
+
+    def get_flavor_by_name(self, name):
+        flavors = self.get_flavors()
+        flavors = (obj.to_dict() for obj in flavors)
+        for flavor in flavors:
+            if flavor.get('name') == name:
+                return flavor
+        return None
 
     def get_keypairs(self):
         return self.client.keypairs.list()
 
     def get_user_keypairs(self, user_id):
         return self.client.keypairs.list(user_id)
+
+    def get_user_keypair_by_name(self, user_id, name):
+        keypairs = self.get_user_keypairs(user_id)
+        keypairs = (kp.to_dict() for kp in keypairs)
+        for kp in keypairs:
+            if kp.get('name') == name:
+                return kp
+        return None
 
 
 class GlanceAPI(object):
@@ -160,6 +176,13 @@ class GlanceAPI(object):
     def get_images(self):
         return self.client.images.list()
 
+    def get_image(self, image_id):
+        try:
+            return self.client.images.get(image_id)
+        except:
+            pass
+        return None
+
 
 class CinderAPI(object):
 
@@ -181,10 +204,12 @@ class CinderAPI(object):
                                       interface=interface)
         return cls(client)
 
-    def get_volumes(self, all_tenants=True):
-        return self.client.volumes.list(detailed=True, search_opts={
-            "all_tenants": all_tenants
-        })
+    def get_volumes(self, project_id=None):
+        search_opts = {}
+        if project_id:
+            search_opts['project_id'] = project_id
+        return self.client.volumes.list(detailed=True,
+                                        search_opts=search_opts)
 
     def get_volume_types(self):
         return self.client.volume_types.list()
@@ -211,11 +236,19 @@ class NeutronAPI(object):
                                        insecure=insecure)
         return cls(client)
 
-    def get_networks(self):
-        return self.client.list_networks(retrieve_all=True).get('networks', [])
+    def get_networks(self, tenant_id=None):
+        params = {}
+        if tenant_id:
+            params['tenant_id'] = tenant_id
+        return self.client.list_networks(**params).get('networks', [])
 
-    def get_subnets(self):
-        return self.client.list_subnets(retrieve_all=True).get('subnets', [])
+    def get_subnets(self, tenant_id=None, network_id=None):
+        params = {}
+        if tenant_id:
+            params['tenant_id'] = tenant_id
+        if network_id:
+            params['project_id'] = network_id
+        return self.client.list_subnets(**params).get('subnets', [])
 
     def get_subnet(self, subnet_id):
         return self.client.show_subnet(subnet_id).get('subnet', {})
