@@ -14,12 +14,14 @@ class ResourceApplicationSerializer(serializers.ModelSerializer):
             'tenant',
             'content',
             'status',
+            'reason',
             'created',
             'modified'
         )
         read_only_fields = (
             'id', 'tenant',
             'status',
+            'reason',
             'creater_id', 'created_name',
             'created', 'modified',
         )
@@ -34,7 +36,7 @@ class ResourceApplicationConfirmationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ResourceApplication
-        fields = ()
+        fields = ('reason',)
 
     def validate(self, data):
         if self.instance.status in (

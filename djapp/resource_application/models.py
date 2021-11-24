@@ -50,6 +50,9 @@ class ResourceApplication(models.Model):
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
         max_length=20)
+    reason = models.TextField(
+        blank=True,
+        verbose_name=_('the reason for denied'))
     created = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))

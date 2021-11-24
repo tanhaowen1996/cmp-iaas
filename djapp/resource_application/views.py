@@ -37,7 +37,7 @@ class ResourceApplicationViewSet(mixins.CreateModelMixin,
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(status=instance.STATUS_APPROVED)
+        serializer.save(status=instance.STATUS_APPROVED, reason='')
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], serializer_class=ResourceApplicationConfirmationSerializer)
