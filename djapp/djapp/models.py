@@ -41,7 +41,7 @@ class Network(models.Model, OpenstackMixin):
     is_shared = models.BooleanField()
     description = models.CharField(
         blank=True,
-        max_length=255)
+        max_length=1024)
     creater = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT)
@@ -290,13 +290,15 @@ class Image(models.Model, OpenstackMixin):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
-    
+
     updated_at = models.DateTimeField(
         auto_now=True,
         verbose_name=_('updated time'))
 
-    description = models.TextField(
-        null=True
+    description = models.CharField(
+        max_length=1024,
+        null=True,
+        blank=True,
     )
 
     user_id = models.CharField(
@@ -307,10 +309,12 @@ class Image(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
+
     tenant_id = models.CharField(
         null=True,
         max_length=255
     )
+
     tenant_name = models.CharField(
         null=True,
         max_length=255
@@ -320,13 +324,13 @@ class Image(models.Model, OpenstackMixin):
         indexes = (BrinIndex(fields=['updated_at', 'created_at']),)
 
     @classmethod
-    def upload_image(cls, os_conn, file, **kwargs):
+    def upload_images(cls, os_conn, file, **kwargs):
         up_image = os_conn.image.upload_image(data=file, **kwargs)
         return up_image
 
-    def update_image(self, os_conn, name='', description='', **kwargs):
-        os_conn.image.update_image(str(self.id), name=name,
-                                   description=description, **kwargs)
+    def update_images(self, os_conn, **kwargs):
+        kwargs['visibility'] = 'public'
+        os_conn.image.update_image(str(self.id),  **kwargs)
 
     def destroy_image(self, os_conn):
         os_conn.image.delete_image(self.id, ignore_missing=False)

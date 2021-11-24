@@ -321,7 +321,7 @@ class VolumeSyncer:
     @staticmethod
     def do_volume_types_sync():
         db_objects = models.VolumeType.objects.all()
-        os_objects = osapi.CinderAPI.create().get_volume_types()
+        os_objects = cinder_api().get_volume_types()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
         LOG.info("Start to syncing VolumeTypes  ...")
@@ -442,7 +442,7 @@ class VolumeSyncer:
         project_id = project.get('id') if project else osapi.get_project_id()
         # get project volumes:
         db_objects = models.Volume.objects.filter(project_id=project_id)
-        os_objects = osapi.CinderAPI.create().get_volumes(project_id=project_id)
+        os_objects = cinder_api().get_volumes(project_id=project_id)
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
         LOG.info("Start to syncing Volumes for project: %s ..." % project_id)
@@ -562,18 +562,12 @@ class NetworkSyncer:
         db_obj.modified = os_obj.get('updated_at')
 
     @staticmethod
-    def _do_network_total_interface_sync(db_obj):
-        ports = models.Port.objects.filter(network_id=db_obj.id)
-        db_obj.total_interface = len([_ for _ in ports])
-        db_obj.save()
-
-    @staticmethod
     def do_networks_sync(user, project):
         # user and project are required
         user_id, project_id = user.get('userId'), project.get('id')
         # filter by user_id and project_id
         db_objects = models.Network.objects.filter(creater_id=user_id)
-        os_objects = osapi.NeutronAPI.create().get_networks(tenant_id=project_id)
+        os_objects = neutron_api().get_networks(tenant_id=project_id)
 
         LOG.info("Start to syncing Networks for user: %s to project: %s..."
                  % (user_id, project_id))
@@ -660,7 +654,7 @@ class NetworkSyncer:
     @staticmethod
     def _do_network_ports_sync(network_id):
         db_objects = models.Port.objects.filter(network_id=network_id)
-        os_objects = osapi.NeutronAPI.create().get_ports(network_id=network_id)
+        os_objects = neutron_api().get_ports(network_id=network_id)
 
         LOG.info("Start to syncing Ports of Network: %s ..." % network_id)
 
@@ -740,7 +734,7 @@ class FlavorSyncer:
     @staticmethod
     def do_flavors_sync():
         db_objects = models.Flavor.objects.all()
-        os_objects = osapi.NovaAPI.create().get_flavors()
+        os_objects = nova_api().get_flavors()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
         LOG.info("Start to syncing all public Flavors ...")
@@ -949,7 +943,7 @@ class InstanceSyncer:
     @staticmethod
     def _do_sync_instance_ports(server_id):
         db_objects = models.InstancePort.objects.filter(server_id=server_id)
-        os_objects = osapi.NovaAPI.create().get_server_interfaces(server_id)
+        os_objects = nova_api().get_server_interfaces(server_id)
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
         LOG.info("Start to syncing Ports of Instance: %s ..." % server_id)

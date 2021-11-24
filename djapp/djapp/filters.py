@@ -68,13 +68,15 @@ class ImageFilter(FilterSet):
 
     class Meta:
         mode = Image
-        filter = ('name', 'visibility', 'os_type', 'status', 'user_name', 'tenant_name')
+        filter = ('name', 'visibility', 'os_type',
+                  'status', 'user_name', 'tenant_name', 'disk_format')
 
 
 class VolumeFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
     user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
     server_name = CharFilter(field_name='server_name', lookup_expr='icontains')
+    server_id = CharFilter(field_name='server_id', lookup_expr='isnull')
     volume_type = CharFilter(field_name='volume_type', lookup_expr='icontains')
     is_bootable = TypedChoiceFilter(
         choices=(('false', 'false'), ('true', 'true')),
@@ -83,4 +85,4 @@ class VolumeFilter(FilterSet):
 
     class Meta:
         mode = Volume
-        filter = ('name', 'user_name', 'server_name', 'volume_type', 'is_bootable', 'status')
+        filter = ('name', 'user_name', 'server_name', 'server_id', 'volume_type', 'is_bootable', 'status')
