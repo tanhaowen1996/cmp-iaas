@@ -226,7 +226,7 @@ class KeypairViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
+            qs = qs.filter(user_id=self.request.account_info['id'])
         return qs
 
     def create(self, request, *args, **kwargs):
