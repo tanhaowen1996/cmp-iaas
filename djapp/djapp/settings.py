@@ -43,7 +43,13 @@ INSTALLED_APPS = [
     'resource_application',
     'message_board',
     'djapp',
+    'sync',
 ]
+
+# RabbitMQ
+TRANSPORT_URL = os.getenv('TRANSPORT_URL',
+                          'rabbit://openstack:OVdyEGIFblbvDY0NYVg3he1GweBRc6f9aObM43zI@10.210.8.177:5672//')
+
 
 REST_FRAMEWORK = {
     'DATE_FORMAT': '%Y-%m-%d',
@@ -155,19 +161,33 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Extra
 
+OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
+OS_USER_DOMAIN_NAME = os.getenv('OS_USER_DOMAIN_NAME', 'Default')
+OS_PROJECT_NAME = os.getenv('OS_PROJECT_NAME', 'admin')
+OS_TENANT_NAME = os.getenv('OS_TENANT_NAME', 'admin')
+OS_USERNAME = os.getenv('OS_USERNAME', 'admin')
+OS_PASSWORD = os.getenv('OS_PASSWORD', 'p3eGAGSzDn4ug5vXDv1cWbxSgSNT1DENILzqE1H3')
+OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://10.210.8.177:35357/v3')
+OS_INTERFACE = os.getenv('OS_INTERFACE', 'internal')
+OS_ENDPOINT_TYPE = os.getenv('OS_ENDPOINT_TYPE', 'internalURL')
+OS_IDENTITY_API_VERSION = int(os.getenv('OS_IDENTITY_API_VERSION', '3'))
+OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
+OS_AUTH_PLUGIN = os.getenv('OS_AUTH_PLUGIN', 'password')
+
+
 OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 
-OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://127.0.0.1:35357/v3')
+# OS_AUTH_URL = os.getenv('OS_AUTH_URL', 'http://127.0.0.1:35357/v3')
 
-OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
+# OS_PROJECT_DOMAIN_NAME = os.getenv('OS_PROJECT_DOMAIN_NAME', 'Default')
 
-OS_INTERFACE = os.getenv('OS_INTERFACE', 'internal')
+# OS_INTERFACE = os.getenv('OS_INTERFACE', 'internal')
 
-OS_ENDPOINT_TYPE = os.getenv('OS_ENDPOINT_TYPE', 'internalURL')
+# OS_ENDPOINT_TYPE = os.getenv('OS_ENDPOINT_TYPE', 'internalURL')
 
-OS_IDENTITY_API_VERSION = int(os.getenv('OS_IDENTITY_API_VERSION', 3))
+# OS_IDENTITY_API_VERSION = int(os.getenv('OS_IDENTITY_API_VERSION', 3))
 
-OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
+# OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
 
 ACCOUNT_INFO_KEY = os.getenv('ACCOUNT_INFO_KEY', 'Account-Info')
 
