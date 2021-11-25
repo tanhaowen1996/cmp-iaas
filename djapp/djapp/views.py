@@ -93,7 +93,8 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            instance.save()
+            instance.creater = request.user
+            instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
