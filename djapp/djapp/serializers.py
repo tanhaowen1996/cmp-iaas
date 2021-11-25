@@ -63,8 +63,8 @@ class NetworkTenantListSerializer(serializers.ModelSerializer):
         )
 
     def validate(self, data):
-        if not self.instance.is_shared:
-            raise serializers.ValidationError(f"the network is not shared")
+        if self.instance.is_shared:
+            raise serializers.ValidationError(f"the network is shared, nothing need to do.")
         return data
 
 
