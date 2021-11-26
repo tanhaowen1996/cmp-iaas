@@ -42,14 +42,15 @@ if getattr(settings, 'SWAGGER', False):
     from rest_framework import permissions
     from drf_yasg.views import get_schema_view
     from drf_yasg import openapi
+    from django.contrib.auth.decorators import login_required
     schema_view = get_schema_view(
         openapi.Info(title="cmp-iaas", default_version='v2'),
         public=True,
         permission_classes=(permissions.AllowAny,))
     urlpatterns += [
-        re_path(rf'^swagger(?P<format>\.json|\.yaml|\.yml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-        path(f'swagger', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-        path(f'redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+        re_path(rf'^swagger(?P<format>\.json|\.yaml|\.yml)$', login_required(schema_view.without_ui(cache_timeout=0)), name='schema-json'),
+        path(f'swagger', login_required(schema_view.with_ui('swagger', cache_timeout=0)), name='schema-swagger-ui'),
+        path(f'redoc', login_required(schema_view.with_ui('redoc', cache_timeout=0)), name='schema-redoc'),
     ]
 
 if settings.DEBUG:

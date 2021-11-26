@@ -69,7 +69,7 @@ class NetworkTenantListSerializer(serializers.ModelSerializer):
 
 
 class PortSerializer(serializers.ModelSerializer):
-    ip_address = IPAddressField(allow_null=True, protocol='IPv4')
+    ip_address = IPAddressField(allow_null=True, protocol='IPv4', required=False)
     network_id = serializers.UUIDField()
     network_name = serializers.CharField(source='network.name', read_only=True)
 
