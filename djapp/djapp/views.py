@@ -638,7 +638,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         try:
-            instance.detached_volume(request.os_conn, data['server_id'])
+            instance.detached_volume(request.os_conn, instance.server_id)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try detached openstack volume {instance.name}:{exc}")
             return Response({
