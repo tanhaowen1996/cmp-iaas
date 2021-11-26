@@ -166,7 +166,10 @@ class ImageSyncer:
 
         db_obj.size = os_obj.get('size')
         db_obj.status = os_obj.get('status')
-        db_obj.os_type = os_obj.get('os_type', 'unknown')
+        os_type = os_obj.get('os_type', None)
+        if not os_type:
+            os_type = os_obj.get('yh_os_type', 'others')
+        db_obj.os_type = os_type
 
         db_obj.owner = os_obj.get('owner')
         db_obj.disk_format = os_obj.get('disk_format')
