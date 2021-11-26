@@ -318,21 +318,22 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         if page is not None:
+            for instance in page:
+                image = instance.get_image(request.os_conn)
+                if instance.size == image.size and instance.status == image.status:
+                    continue
+                serializer = ImageSerializer(instance, data=image)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    status=image.status,
+                    updated_at=image.updated_at,
+                    size=image.size
+                )
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        for instance in page:
-            image = instance.get_image(request.os_conn)
-            if instance.size == image.size and instance.status == image.status:
-                continue
-            serializer = ImageSerializer(instance, data=image)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(
-                status=image.status,
-                updated_at=image.updated_at,
-                size=image.size
-            )
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
     def create(self, request, *args, **kwargs):
         file = request.data['file']
