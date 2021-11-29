@@ -9,9 +9,10 @@ from .serializers import (
     PortSerializer, UpdatePortSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
+    VolumeTypeSerializer,
 )
-from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, VolumeFilter
-from .models import Network, Port, Keypair, Image, Volume
+from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
+from .models import Network, Port, Keypair, Image, Volume, VolumeType
 import logging
 import openstack
 import time
@@ -751,3 +752,18 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class VolumeTypeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
+    """
+        list:
+        获取云硬盘类型列表
+
+        retrieve:
+        获取云硬盘类型列表信息
+
+        """
+    authentication_classes = (OSAuthentication,)
+    filterset_class = VolumeTypeFilter
+    serializer_class = VolumeTypeSerializer
+    queryset = VolumeType.objects.all()
