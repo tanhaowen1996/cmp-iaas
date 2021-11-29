@@ -495,6 +495,10 @@ class VolumeType(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
+    properties = models.CharField(
+        null=True,
+        max_length=255
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))
