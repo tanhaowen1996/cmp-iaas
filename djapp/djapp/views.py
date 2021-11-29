@@ -14,6 +14,7 @@ from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, Volu
 from .models import Network, Port, Keypair, Image, Volume
 import logging
 import openstack
+import time
 
 
 logger = logging.getLogger(__package__)
@@ -624,8 +625,8 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save(
                 status=volume.status,
-                attachments=volume.attachments,
-                device=volume.attachments[0].get('device'),
+                # attachments=volume.attachments,
+                # device=volume.attachments[0].get('device'),
                 server_name=server.name,
                 server_id=data['server_id'],
             )
