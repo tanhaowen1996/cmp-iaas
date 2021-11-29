@@ -6,6 +6,7 @@ from netfields import CidrAddressField, InetAddressField,\
     MACAddressField, NetManager
 from .utils import OpenstackMixin
 import uuid
+from threading import Thread
 
 
 class Network(models.Model, OpenstackMixin):
@@ -456,6 +457,13 @@ class Volume(models.Model, OpenstackMixin):
         update_volume = os_conn.update_volume(self.id, name=name)
         return update_volume
 
+    def async_attached(f):
+        def wrapper(*args, **kwargs):
+            thr = Thread(target=f, args=args, kwargs=kwargs)
+            thr.start()
+        return wrapper
+
+    @async_attached
     def attached_volume(self, os_conn, server_id):
         server = os_conn.compute.get_server(server_id)
         volume = os_conn.get_volume(self.id)
