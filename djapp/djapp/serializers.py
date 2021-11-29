@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .fields import IPAddressField
-from .models import Network, Port, Keypair, Image, Volume
+from .models import Network, Port, Keypair, Image, Volume, VolumeType
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -206,4 +206,22 @@ class UpdateVolumeSerializer(serializers.ModelSerializer):
             'status',
             'cluster_name',
             'updated_at'
+        )
+
+
+class VolumeTypeSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
+    name = serializers.CharField(required=False)
+    is_public = serializers.BooleanField(required=False)
+    description = serializers.CharField(required=False)
+    properties = serializers.CharField(required=False)
+
+    class Meta:
+        model = VolumeType
+        fields = (
+            "id",
+            "name",
+            "is_public",
+            "description",
+            "properties"
         )
