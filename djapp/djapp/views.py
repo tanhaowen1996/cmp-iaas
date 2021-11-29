@@ -558,11 +558,27 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             volume = instance.get_volume(request.os_conn)
-            serializer = UpdateVolumeSerializer(instance, data=volume)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(
-                cluster_name=volume.host
-            )
+            if volume.attachments == []:
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                    device=None,
+                    server_name=None,
+                    server_id=None,
+                )
+            else:
+                server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
+                serializer = UpdateVolumeSerializer(instance, data=volume)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    cluster_name=volume.host,
+                    attachments=volume.attachments,
+                    device=volume.attachments[0].get('device'),
+                    server_name=server.name,
+                    server_id=volume.attachments[0].get('server_id'),
+                )
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
         except openstack.exceptions.BadRequestException as exc:
