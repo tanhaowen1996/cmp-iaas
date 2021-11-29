@@ -668,7 +668,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer = VolumeSerializer(instance, data=volume)
             serializer.is_valid(raise_exception=True)
             serializer.save(
-                status=volume.status,
+                status="detaching",
                 attachments=volume.attachments,
                 device=None,
                 server_name=None,
