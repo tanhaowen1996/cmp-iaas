@@ -641,7 +641,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer = VolumeSerializer(instance, data=volume)
             serializer.is_valid(raise_exception=True)
             serializer.save(
-                status=volume.status,
+                status="attaching",
                 # attachments=volume.attachments,
                 # device=volume.attachments[0].get('device'),
                 server_name=server.name,
