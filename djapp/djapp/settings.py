@@ -50,6 +50,9 @@ REST_FRAMEWORK = {
     'DATE_FORMAT': '%Y-%m-%d',
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
     'DEFAULT_PAGINATION_CLASS': 'djapp.pagination.PageNumberPagination',
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
     ),
@@ -153,6 +156,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+LOGIN_URL = '/admin/login/'
+
 
 # Extra
 
@@ -194,6 +199,7 @@ SWAGGER = bool(int(os.getenv('SWAGGER', 0)))
 
 if SWAGGER:
     SWAGGER_SETTINGS = {
+        'LOGOUT_URL': '/admin/logout/',
         'SECURITY_DEFINITIONS': {
             ACCOUNT_INFO_KEY: {
                 'type': 'apiKey',
