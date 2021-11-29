@@ -470,6 +470,7 @@ class Volume(models.Model, OpenstackMixin):
         attached = os_conn.attach_volume(server=server, volume=volume)
         return attached
 
+    @async_attached
     def detached_volume(self, os_conn, server_id):
         server = os_conn.compute.get_server(server_id)
         volume = os_conn.get_volume(self.id)
