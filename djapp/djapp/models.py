@@ -116,6 +116,9 @@ class Port(models.Model, OpenstackMixin):
     mac_address = MACAddressField(
         unique=True)
     is_external = models.BooleanField()
+    creater = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT)
     created = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('created time'))

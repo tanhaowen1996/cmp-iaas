@@ -72,6 +72,7 @@ class PortSerializer(serializers.ModelSerializer):
     ip_address = IPAddressField(allow_null=True, protocol='IPv4', required=False)
     network_id = serializers.UUIDField()
     network_name = serializers.CharField(source='network.name', read_only=True)
+    creater_name = serializers.CharField(source='creater.get_full_name', read_only=True)
 
     class Meta:
         model = Port
@@ -83,12 +84,14 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_external',
+            'creater_name',
             'created',
             'modified',
         )
         read_only_fields = (
             'id', 'network_name',
             'mac_address',
+            'creater_name',
             'created', 'modified',
         )
 

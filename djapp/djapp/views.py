@@ -171,6 +171,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            instance.creater = request.user
             instance.save()
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
