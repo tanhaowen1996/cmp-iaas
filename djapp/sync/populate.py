@@ -446,7 +446,9 @@ class VolumeSyncer:
         # get project volumes:
         db_objects = models.Volume.objects.filter(project_id=project_id)
         os_objects = cinder_api().get_volumes(project_id=project_id)
-        os_objects = [os_obj.to_dict() for os_obj in os_objects]
+        os_objects = (os_obj.to_dict() for os_obj in os_objects)
+        os_objects = [os_obj for os_obj in os_objects
+                      if os_obj.get('os-vol-tenant-attr:tenant_id') == project_id]
 
         LOG.info("Start to syncing Volumes for project: %s ..." % project_id)
 
@@ -849,6 +851,8 @@ class InstanceSyncer:
         if project:
             db_obj.tenant_id = project.get('tenantId')
             db_obj.tenant_name = project.get('tenantName')
+        else:
+            db_obj.tenant_id
 
         # db_obj.admin_password
 
@@ -882,17 +886,18 @@ class InstanceSyncer:
         # // db_obj.creator_id
         # // db_obj.creator_name
         # db_obj.update_time = os_obj.get('updated')
-        # db_obj.deleted = 0
+        db_obj.create_time = os_obj.get('created')
+        db_obj.deleted = 0
 
     @staticmethod
     def do_instances_sync(user=None, project=None):
         project_id = project.get('id') if project else osapi.get_project_id()
 
         db_objects = models.Instance.objects.filter(project_id=project_id)
-        os_objects = nova_api().get_servers()
+        os_objects = nova_api().get_servers(project_id=project_id)
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
-        LOG.info("Start to syncing Instances ...")
+        LOG.info("Start to syncing Instances for project: %s..." % project_id)
 
         def _remove_instance(db_obj):
             LOG.info("Remove unknown instance: %s" % db_obj.id)
@@ -904,7 +909,7 @@ class InstanceSyncer:
         def _create_instance(os_obj):
             LOG.info("Create a new instance: %s" % os_obj.get('id'))
             db_obj = models.Instance()
-            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj)
+            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
@@ -913,7 +918,7 @@ class InstanceSyncer:
 
         def _update_instance(db_obj, os_obj):
             LOG.info("Update existed instance: %s" % db_obj.id)
-            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj)
+            InstanceSyncer._convert_instance_from_os2db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
@@ -1004,7 +1009,7 @@ class UserSyncer(Syncer):
             "projects": [{
                 "id": admin_project_id,
                 "name": "admin",
-                "tenantId": admin_project_id,
+                "tenantId": "admin",
                 "tenantName": "admin"
             }]
         }
@@ -1034,6 +1039,12 @@ class UserSyncer(Syncer):
         ImageSyncer.do_images_sync(admin_user, admin_project)
         # Networks
         NetworkSyncer.do_networks_sync(admin_user, admin_project)
+        # KeyPairs
+        KeyPairSyncer.do_key_pairs_sync(admin_user, admin_project)
+        # Instances
+        InstanceSyncer.do_instances_sync(admin_user, admin_project)
+        # Volumes
+        VolumeSyncer.do_volumes_sync(admin_user, admin_project)
 
     def do_tenants_sync_from_uum(self):
         users = uum_api().get_users()
