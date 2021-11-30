@@ -114,10 +114,12 @@ class NovaAPI(object):
             extensions=nova_extensions)
         return cls(client)
 
-    def get_servers(self, all_tenants=True):
-        opts = {
-            'all_tenants': all_tenants
-        }
+    def get_servers(self, all_tenants=None, project_id=None):
+        opts = {}
+        if all_tenants:
+            opts['all_tenants'] = all_tenants
+        if project_id:
+            opts['project'] = project_id
         # LOG.info('Fetch Server list...')
         return self.client.servers.list(detailed=True, search_opts=opts)
 
@@ -207,7 +209,7 @@ class CinderAPI(object):
     def get_volumes(self, project_id=None):
         search_opts = {}
         if project_id:
-            search_opts['project_id'] = project_id
+            search_opts['project'] = project_id
         return self.client.volumes.list(detailed=True,
                                         search_opts=search_opts)
 

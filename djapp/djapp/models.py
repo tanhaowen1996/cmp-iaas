@@ -258,7 +258,7 @@ class Image(models.Model, OpenstackMixin):
         verbose_name=_('image owner'))
 
     name = models.CharField(
-        max_length=20,
+        max_length=255,
         null=True,
         verbose_name=_('image name'))
     status = (
@@ -267,15 +267,15 @@ class Image(models.Model, OpenstackMixin):
         ('saving', 'saving'),
     )
 
-    size = models.IntegerField(null=True)
+    size = models.BigIntegerField(null=True)
 
     status = models.CharField(
-        max_length=45,
+        max_length=255,
         choices=status,
         null=True)
 
     disk_format = models.CharField(
-        max_length=20,
+        max_length=255,
         null=True)
 
     container_format = models.CharField(
