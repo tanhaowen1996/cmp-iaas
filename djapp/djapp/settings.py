@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'resource_application',
     'message_board',
+    'operation_log',
     'djapp',
     'sync',
 ]
