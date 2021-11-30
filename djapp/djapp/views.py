@@ -309,7 +309,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     serializer_class = ImageSerializer
     filter_backends = [DjangoFilterBackend]
     filter_fields = ['os_type', 'name', 'visibility', 'status',
-                     'user_name', 'tenant_name', 'disk_format']
+                     'user_id', 'tenant_name', 'disk_format']
 
     def get_queryset(self):
         qs = super().get_queryset()
