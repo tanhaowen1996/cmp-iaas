@@ -521,7 +521,7 @@ class Instance(models.Model, OpenstackMixin):
     ip_intranet = models.CharField(max_length=255, blank=True, null=True)
     ip_internet = models.CharField(max_length=255, blank=True, null=True)
     update_time = models.DateTimeField(blank=True, null=True)
-    deleted = models.SmallIntegerField(blank=True, null=True)
+    deleted = models.SmallIntegerField(blank=True, null=True, default=0)
     status = models.CharField(max_length=255, blank=True, null=True)
     updater_id = models.CharField(max_length=255, blank=True, null=True)
     updater_name = models.CharField(max_length=255, blank=True, null=True)
