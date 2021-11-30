@@ -590,7 +590,7 @@ class NetworkSyncer:
             db_obj.save()
 
             # sync network ports:
-            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            NetworkSyncer._do_network_ports_sync(db_obj.id, user, project)
             # NetworkSyncer._do_network_total_interface_sync(db_obj)
 
         def _update_network(db_obj, os_obj):
@@ -600,7 +600,7 @@ class NetworkSyncer:
             db_obj.save()
 
             # sync network ports:
-            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            NetworkSyncer._do_network_ports_sync(db_obj.id, user, project)
             # NetworkSyncer._do_network_total_interface_sync(db_obj)
 
         _alg_sync(db_objects=db_objects,
@@ -612,7 +612,7 @@ class NetworkSyncer:
                   remove_db_fn=_remove_network)
 
     @staticmethod
-    def _convert_port_from_os2db(db_obj, os_obj):
+    def _convert_port_from_os2db(db_obj, os_obj, user=None, project=None):
         """OpenStack port dict:
         {
             'id': '0779769c-3420-42e7-aecc-3faa69c9d285',
@@ -651,11 +651,14 @@ class NetworkSyncer:
         db_obj.mac_address = os_obj.get('mac_address')
         # TODO: is_external set False
         db_obj.is_external = False
+
+        db_obj.creater_id = user.get('userId')
+
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
     @staticmethod
-    def _do_network_ports_sync(network_id):
+    def _do_network_ports_sync(network_id, user=None, project=None):
         db_objects = models.Port.objects.filter(network_id=network_id)
         os_objects = neutron_api().get_ports(network_id=network_id)
 
@@ -664,13 +667,13 @@ class NetworkSyncer:
         def _create_network_port(os_obj):
             LOG.info("Create a network: %s port: %s" % (network_id, os_obj.get('id')))
             db_obj = models.Port()
-            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj, user, project)
             # save to db:
             db_obj.save()
 
         def _update_network_port(db_obj, os_obj):
             LOG.info("Update existed network: %s port: %s" % (network_id, db_obj.id))
-            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj)
+            NetworkSyncer._convert_port_from_os2db(db_obj, os_obj, user, project)
             # update to db:
             db_obj.save()
 
@@ -883,7 +886,9 @@ class InstanceSyncer:
 
     @staticmethod
     def do_instances_sync(user=None, project=None):
-        db_objects = models.Instance.objects.all()
+        project_id = project.get('id') if project else osapi.get_project_id()
+
+        db_objects = models.Instance.objects.filter(project_id=project_id)
         os_objects = nova_api().get_servers()
         os_objects = [os_obj.to_dict() for os_obj in os_objects]
 
@@ -996,7 +1001,7 @@ class UserSyncer(Syncer):
             'userName': "admin_syncer",
             "relUserId": admin_user_id,
             "relUserName": "admin",
-            "project": [{
+            "projects": [{
                 "id": admin_project_id,
                 "name": "admin",
                 "tenantId": admin_project_id,
@@ -1017,7 +1022,7 @@ class UserSyncer(Syncer):
         LOG.info("Start sync admin resources ...")
 
         admin_user = self._make_os_admin_user_info()
-        admin_project = admin_user.get('project')[0]
+        admin_project = admin_user.get('projects')[0]
         # make admin syncer auth user:
         self._create_auth_user(admin_user)
 
@@ -1040,7 +1045,7 @@ class UserSyncer(Syncer):
             self._sync_user_resource(user)
 
     def _sync_user_resource(self, user):
-        projects = user.get('project', [])
+        projects = user.get('projects', [])
         LOG.info("Got %s projects from user: %s" % (len(projects), user.get('userId')))
         for project in projects:
             project_id = project.get('id')
