@@ -63,13 +63,13 @@ class ImageFilter(FilterSet):
     visibility = CharFilter(field_name='visibility', lookup_expr='icontains')
     os_type = CharFilter(field_name='os_type', lookup_expr='icontains')
     status = CharFilter(field_name='status', lookup_expr='icontains')
-    user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
+    user_id = CharFilter(field_name='user_id', lookup_expr='icontains')
     tenant_name = CharFilter(field_name='tenant_name', lookup_expr='icontains')
 
     class Meta:
         mode = Image
         filter = ('name', 'visibility', 'os_type',
-                  'status', 'user_name', 'tenant_name', 'disk_format')
+                  'status', 'user_id', 'tenant_name', 'disk_format')
 
 
 class VolumeFilter(FilterSet):
