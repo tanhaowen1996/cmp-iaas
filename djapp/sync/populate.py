@@ -949,11 +949,7 @@ class InstanceSyncer:
         """
         db_obj.id = os_obj.get('port_id')
         db_obj.server_id = server_id
-        db_obj.network_id = os_obj.get('net_id')
         db_obj.port_id = os_obj.get('port_id')
-        fixed_ips = os_obj.get('fixed_ips', [])
-        if fixed_ips:
-            db_obj.ip_address = fixed_ips[0].get('ip_address')
         # db_obj.created
         # db_obj.modified
 
