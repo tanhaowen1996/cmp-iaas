@@ -26,7 +26,7 @@ class UumAPI(object):
             ]
         }
 
-        self.test_response_data = [{
+        self.test_data = [{
             "userId": 152,
             "userName": "admin",
             "relUserId": "f4e124ef1eea4ad8bf3c6e0983275dad",
@@ -41,6 +41,7 @@ class UumAPI(object):
 
     def get_users(self):
         _ = self.client
+        # return self.test_data
         return self.prod_response_data['data']
 
     @classmethod

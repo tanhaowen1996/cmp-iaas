@@ -557,9 +557,7 @@ class Flavor(models.Model):
 class InstancePort(models.Model):
     id = models.UUIDField(primary_key=True)
     server_id = models.UUIDField(blank=True, null=True)
-    network_id = models.UUIDField(blank=True, null=True)
     port_id = models.UUIDField(blank=True, null=True)
-    ip_address = InetAddressField(null=True)
     created = models.DateTimeField(blank=True, null=True)
     modified = models.DateTimeField(blank=True, null=True)
 
