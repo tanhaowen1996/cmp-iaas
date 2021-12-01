@@ -138,6 +138,15 @@ class Port(models.Model, OpenstackMixin):
     def __str__(self):
         return self.name
 
+    @property
+    def server_name(self):
+        try:
+            instance_port = InstancePort.objects.get(port_id=self.id)
+            server = Instance.objects.get(id=instance_port.server_id)
+            return server.name
+        except Exception:
+            return ''
+
     def create_os_port(self, os_conn):
         fixed_ip = {'subnet_id': self.network.os_subnet_id}
         if self.ip_address:

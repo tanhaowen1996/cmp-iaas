@@ -85,6 +85,7 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_external',
+            'server_name',
             'creater_name',
             'created',
             'modified',
@@ -92,6 +93,7 @@ class PortSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'id', 'network_name',
             'mac_address',
+            'server_name',
             'creater_name',
             'created', 'modified',
         )
