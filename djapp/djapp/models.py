@@ -60,6 +60,10 @@ class Network(models.Model, OpenstackMixin):
     def __str__(self):
         return self.name
 
+    @property
+    def total_attached_interface(self):
+        return self.port_set.count()
+
     def create_os_network_subnet(self, os_conn):
         network = os_conn.network.create_network(
             name=self.name

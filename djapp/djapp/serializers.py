@@ -14,6 +14,7 @@ class NetworkSerializer(serializers.ModelSerializer):
             'name',
             'cidr',
             'total_interface',
+            'total_attached_interface',
             'vlan_id',
             'category',
             'is_shared',
@@ -23,7 +24,7 @@ class NetworkSerializer(serializers.ModelSerializer):
             'modified'
         )
         read_only_fields = (
-            'id', 'total_interface',
+            'id', 'total_interface', 'total_attached_interface',
             'os_network_id', 'os_subnet_id',
             'tenants',
             'created', 'modified',
