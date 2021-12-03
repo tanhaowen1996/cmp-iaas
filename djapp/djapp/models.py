@@ -4,7 +4,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from netfields import CidrAddressField, InetAddressField,\
     MACAddressField, NetManager
-from .utils import OpenstackMixin
+from .utils import NetConfMixin, OpenstackMixin
 import uuid
 from threading import Thread
 
@@ -102,6 +102,62 @@ class Network(models.Model, OpenstackMixin):
         }
 
 
+class Firewall(models.Model, NetConfMixin):
+    id = models.PositiveIntegerField(
+        editable=False,
+        primary_key=True,
+        verbose_name=_('rule id'))
+    name = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name=_('rule name'))
+    source_tenant = models.JSONField(
+        default=dict,
+        verbose_name=_('source tenant obj with id & name'))
+    source_network = models.ForeignKey(
+        Network,
+        related_name='source_network',
+        on_delete=models.PROTECT,
+        verbose_name=_('source network'))
+    destination_tenant = models.JSONField(
+        default=dict,
+        verbose_name=_('destination tenant obj with id & name'))
+    destination_network = models.ForeignKey(
+        Network,
+        related_name='destination_network',
+        on_delete=models.PROTECT,
+        verbose_name=_('destination network'))
+    is_allowed = models.BooleanField(
+        default=True)
+    creater = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        verbose_name=_('creater'))
+    created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+
+    class Meta:
+        indexes = (BrinIndex(fields=['created']),)
+        ordering = ('id',)
+
+    def __str__(self):
+        return self.name
+
+    def create_rule(self):
+        with self.get_netconf_conn() as conn:
+            self.preset_security_policy_id(conn)
+            created, errors = self.create_security_policy_rule(conn)
+            if errors:
+                raise Exception(errors)
+
+    def destroy_rule(self):
+        with self.get_netconf_conn() as conn:
+            created, errors = self.delete_security_policy_rule(conn)
+            if errors:
+                raise Exception(errors)
+
+
 class Port(models.Model, OpenstackMixin):
     id = models.UUIDField(
         editable=False,
@@ -171,7 +227,6 @@ class Port(models.Model, OpenstackMixin):
 
     def destroy_os_port(self, os_conn):
         os_conn.network.delete_port(self.os_port_id, ignore_missing=False)
-
 
 class Keypair(models.Model, OpenstackMixin):
     id = models.UUIDField(

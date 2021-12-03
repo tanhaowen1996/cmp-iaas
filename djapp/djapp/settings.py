@@ -190,6 +190,18 @@ OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 
 # OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
 
+
+# Firewall netconf 
+
+FIREWALL_HOST = os.getenv('FIREWALL_HOST', '127.0.0.1')
+
+FIREWALL_PORT = int(os.getenv('FIREWALL_PORT', 830))
+
+FIREWALL_USERNAME = os.getenv('FIREWALL_USERNAME', 'NETCONF_USERNAME')
+
+FIREWALL_PASSWORD = os.getenv('FIREWALL_PASSWORD', 'NETCONF_PASSWORD')
+
+
 ACCOUNT_INFO_KEY = os.getenv('ACCOUNT_INFO_KEY', 'Account-Info')
 
 # RabbitMQ

@@ -1,12 +1,19 @@
 from django_filters import (
+    Filter,
     FilterSet,
     CharFilter,
     ChoiceFilter,
     OrderingFilter,
     TypedChoiceFilter)
+from django.db.models import Q
+from django import forms
 from distutils.util import strtobool
 from netfields import InetAddressField
-from .models import Network, Port, Keypair, Image, Volume, VolumeType
+from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
+
+
+class TenantIDFilter(Filter):
+    field_class = forms.IntegerField
 
 
 class NetworkFilter(FilterSet):
@@ -30,6 +37,28 @@ class NetworkFilter(FilterSet):
         fields = ('name',)
 
 
+class SimpleSourceTenantNetworkFilter(FilterSet):
+    tenant_id = TenantIDFilter(field_name='tenants', method='filter_source_tenant')
+
+    class Meta:
+        model = Network
+        fields = ('tenant_id',)
+
+    def filter_source_tenant(self, queryset, name, value):
+        return queryset.filter(Q(is_shared=True) | Q(tenants__contains=[{'id': value}]))
+
+
+class SimpleDestinationTenantNetworkFilter(FilterSet):
+    tenant_id = TenantIDFilter(field_name='tenants', method='filter_destination_tenant')
+
+    class Meta:
+        model = Network
+        fields = ('tenant_id',)
+
+    def filter_destination_tenant(self, queryset, name, value):
+        return queryset.filter(Q(tenants__contains=[{'id': value}]))
+
+
 class PortFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
 
@@ -44,6 +73,16 @@ class PortFilter(FilterSet):
                 },
             },
         }
+
+
+class FirewallFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
+    source_tenant_id = TenantIDFilter(field_name='source_tenant__id')
+    destination_tenant_id = TenantIDFilter(field_name='destination_tenant__id')
+
+    class Meta:
+        model = Firewall
+        fields = ('source_tenant_id', 'destination_tenant_id')
 
 
 class KeypairFilter(FilterSet):

@@ -18,7 +18,7 @@ from django.conf.urls import re_path
 from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import SimpleRouter
-from .views import NetworkViewSet, PortViewSet, KeypairViewSet, ImageViewSet, \
+from .views import NetworkViewSet, PortViewSet, FirewallViewSet, KeypairViewSet, ImageViewSet, \
     VolumeViewSet, VolumeTypeViewSet
 from resource_application.views import ResourceApplicationViewSet
 from message_board.views import TopicViewSet
@@ -27,6 +27,7 @@ from operation_log.views import OperationLogViewSet
 router = SimpleRouter(trailing_slash=False)
 router.register(r'network', NetworkViewSet, basename='network')
 router.register(r'port', PortViewSet, basename='port')
+router.register(r'firewall', FirewallViewSet, basename='firewall')
 router.register(r'keypair', KeypairViewSet, basename='keypair')
 router.register(r'image', ImageViewSet, basename='image')
 router.register(r'volume', VolumeViewSet, basename='volume')

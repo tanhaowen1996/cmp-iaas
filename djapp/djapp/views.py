@@ -1,18 +1,21 @@
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status
+from rest_framework import mixins, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .authentication import OSAuthentication
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer, NetworkTenantListSerializer,
+    SimpleNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
+    FirewallSerializer, FirewallPlatformSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
     VolumeTypeSerializer,
 )
 from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
-from .models import Network, Port, Keypair, Image, Volume, VolumeType
+from .filters import FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDestinationTenantNetworkFilter
+from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
 import logging
 import openstack
 import time
@@ -82,6 +85,32 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         return Response({
             **serializer.data,
             **instance.get_os_network_subnet(request.os_conn)})
+
+    @action(detail=False, serializer_class=SimpleNetworkSerializer, filterset_class=SimpleSourceTenantNetworkFilter)
+    def source_networks(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(Network.objects.all())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, serializer_class=SimpleNetworkSerializer, filterset_class=SimpleDestinationTenantNetworkFilter)
+    def destination_networks(self, request, pk=None):
+        qs = Network.objects.all()
+        if not self.request.user.is_staff:
+            qs = qs.filter(Q(tenants__contains=[{'id': self.request.account_info['tenantId']}]))
+
+        queryset = self.filter_queryset(qs)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -196,6 +225,54 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             instance.destroy_os_port(request.os_conn)
         except openstack.exceptions.HttpException as exc:
             logger.error(f"try destroying openstack port {instance.name}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FirewallViewSet(mixins.CreateModelMixin,
+                      mixins.DestroyModelMixin,
+                      mixins.ListModelMixin,
+                      viewsets.GenericViewSet):
+    authentication_classes = (OSAuthentication,)
+    filterset_class = FirewallFilter
+    queryset = Firewall.objects.all()
+    serializer_class = FirewallSerializer
+    staff_serializer_class = FirewallPlatformSerializer
+
+    def get_serializer_class(self):
+        return self.staff_serializer_class if self.request.user.is_staff else self.serializer_class
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance = serializer.Meta.model(**serializer.validated_data)
+            instance.create_rule()
+        except Exception as exc:
+            logger.error(f"try creating firewall rule {serializer.validated_data}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            instance.creater = request.user
+            if not self.request.user.is_staff:
+                instance.destination_tenant = {
+                    'id': self.request.account_info.get('tenantId'),
+                    'tenant_name': self.request.account_info.get('tenantName'),
+                }
+            instance.save(force_insert=True)
+            return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_rule()
+        except Exception as exc:
+            logger.error(f"try destroying firewall rule {instance.name}: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)

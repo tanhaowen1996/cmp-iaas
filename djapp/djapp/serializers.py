@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .fields import IPAddressField
-from .models import Network, Port, Keypair, Image, Volume, VolumeType
+from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -44,6 +44,17 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
         fields = (
             'name',
             'description',
+        )
+
+
+class SimpleNetworkSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Network
+        fields = (
+            'id',
+            'name',
+            'cidr',
         )
 
 
@@ -112,6 +123,25 @@ class UpdatePortSerializer(serializers.ModelSerializer):
         fields = (
             'name',
         )
+
+
+class FirewallSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Firewall
+        fields = (
+            'name',
+            'source_tenant',
+            'source_network',
+            'destination_network',
+            'is_allowed',
+        )
+
+
+class FirewallPlatformSerializer(FirewallSerializer):
+
+    class Meta(FirewallSerializer.Meta):
+        fields = FirewallSerializer.Meta.fields + ('destination_tenant',)
 
 
 class KeypairSerializer(serializers.ModelSerializer):
