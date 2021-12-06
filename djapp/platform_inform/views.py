@@ -9,7 +9,6 @@ from .serializers import InformSerializer
 import json
 import requests
 headers = {'account-info': ''}
-all_user_url = 'http://ums.cmpdev.yonghui.cn:80/account/queryUserList'
 
 
 class InformViewSet(viewsets.ModelViewSet):
@@ -41,7 +40,8 @@ class InformViewSet(viewsets.ModelViewSet):
                 initiator_id=request.user.id,
                 initiator_name=request.user
             )
-            res = requests.get(url=all_user_url, headers=headers)
+            self.all_user_url = 'http://ums.cmpdev.yonghui.cn:80/account/queryUserList'
+            res = requests.get(url=self.all_user_url, headers=headers)
             user_info_all = json.loads(res.text)['data']['records']
             for user_info in user_info_all:
                 models.InformUser.objects.create(informs_id=serializer.data['id'],
