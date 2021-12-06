@@ -191,7 +191,7 @@ OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 # OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
 
 
-# Firewall netconf 
+# Firewall netconf
 
 FIREWALL_HOST = os.getenv('FIREWALL_HOST', '127.0.0.1')
 
