@@ -62,6 +62,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'djapp.middleware.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,6 +73,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'djapp.urls'
+
+HEALTH_CHECK_PATH = os.getenv('HEALTH_CHECK_PATH', '/health')
 
 TEMPLATES = [
     {
