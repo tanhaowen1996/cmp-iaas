@@ -178,6 +178,17 @@ class FirewallPlatformSerializer(FirewallSerializer):
     def validate_destination_network_id(self, value):
         return value
 
+    def validate(self, data):
+        data = super().validate(data)
+        try:
+            destination_network = Network.objects.get(id=data['destination_network_id'])
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"destination network id {data['destination_network_id']}: {exc}")
+        if data['destination_tenant'] not in destination_network.tenants:
+            raise serializers.ValidationError(
+                f"the destination network {destination_network} is not shared, and does not belong to destination tenant {data['destination_tenant']['name']}")
+        return data
+
 
 class KeypairSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
