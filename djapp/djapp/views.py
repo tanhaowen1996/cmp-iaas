@@ -243,6 +243,16 @@ class FirewallViewSet(mixins.CreateModelMixin,
     serializer_class = FirewallSerializer
     staff_serializer_class = FirewallPlatformSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(destination_tenant={
+                'id': self.request.account_info.get('tenantId'),
+                'name': self.request.account_info.get('tenantName'),
+            })
+
+        return qs
+
     def get_serializer_class(self):
         return self.staff_serializer_class if self.request.user.is_staff else self.serializer_class
 
