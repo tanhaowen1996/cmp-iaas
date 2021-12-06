@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'operation_log',
     'djapp',
     'sync',
+    'platform_inform',
 ]
 
 REST_FRAMEWORK = {

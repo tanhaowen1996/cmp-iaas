@@ -23,6 +23,7 @@ from .views import NetworkViewSet, PortViewSet, FirewallViewSet, KeypairViewSet,
 from resource_application.views import ResourceApplicationViewSet
 from message_board.views import TopicViewSet
 from operation_log.views import OperationLogViewSet
+from platform_inform.views import InformViewSet
 
 router = SimpleRouter(trailing_slash=False)
 router.register(r'network', NetworkViewSet, basename='network')
@@ -36,6 +37,7 @@ router.register(r'operation', OperationLogViewSet, basename='operation')
 
 router.register(r'resource-application', ResourceApplicationViewSet, basename='resource_application')
 router.register(r'message-board', TopicViewSet, basename='message_board')
+router.register(r'platform-inform', InformViewSet, basename='platform_inform')
 
 urlpatterns = [
     path('v2/', include(router.urls)),
