@@ -126,22 +126,57 @@ class UpdatePortSerializer(serializers.ModelSerializer):
 
 
 class FirewallSerializer(serializers.ModelSerializer):
+    source_tenant = TenantSerializer()
+    source_network_id = serializers.UUIDField()
+    destination_network_id = serializers.UUIDField()
 
     class Meta:
         model = Firewall
         fields = (
+            'id',
             'name',
             'source_tenant',
-            'source_network',
-            'destination_network',
+            'source_network_id',
+            'source_network_name',
+            'destination_network_id',
+            'destination_network_name',
             'is_allowed',
         )
+        read_only_fields = (
+            'id',
+            'source_network_name',
+            'destination_network_name',
+        )
+
+    def validate_destination_network_id(self, value):
+        try:
+            destination_network = Network.objects.get(id=value, is_shared=False)
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"destination network id {value}: {exc}")
+        if self.context['request'].account_info.get('tenantId') not in [t['id'] for t in destination_network.tenants]:
+            raise serializers.ValidationError(
+                f"the destination network {destination_network} does not belong to current tenant {self.context['request'].account_info.get('tenant_id')}")
+        return value
+
+    def validate(self, data):
+        try:
+            source_network = Network.objects.get(id=data['source_network_id'])
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
+        if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+            raise serializers.ValidationError(
+                f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+        return data
 
 
 class FirewallPlatformSerializer(FirewallSerializer):
+    destination_tenant = TenantSerializer()
 
     class Meta(FirewallSerializer.Meta):
         fields = FirewallSerializer.Meta.fields + ('destination_tenant',)
+
+    def validate_destination_network_id(self, value):
+        return value
 
 
 class KeypairSerializer(serializers.ModelSerializer):

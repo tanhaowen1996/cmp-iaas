@@ -144,6 +144,14 @@ class Firewall(models.Model, NetConfMixin):
     def __str__(self):
         return self.name
 
+    @property
+    def source_network_name(self):
+        return self.source_network.name
+
+    @property
+    def destination_network_name(self):
+        return self.destination_network.name
+
     def create_rule(self):
         with self.get_netconf_conn() as conn:
             self.preset_security_policy_id(conn)

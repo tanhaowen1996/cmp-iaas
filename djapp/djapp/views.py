@@ -262,7 +262,7 @@ class FirewallViewSet(mixins.CreateModelMixin,
             if not self.request.user.is_staff:
                 instance.destination_tenant = {
                     'id': self.request.account_info.get('tenantId'),
-                    'tenant_name': self.request.account_info.get('tenantName'),
+                    'name': self.request.account_info.get('tenantName'),
                 }
             instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)

@@ -82,7 +82,7 @@ class FirewallFilter(FilterSet):
 
     class Meta:
         model = Firewall
-        fields = ('source_tenant_id', 'destination_tenant_id')
+        fields = ('source_tenant_id', 'destination_tenant_id', 'source_network_id', 'destination_network_id')
 
 
 class KeypairFilter(FilterSet):
