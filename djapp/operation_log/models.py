@@ -25,7 +25,7 @@ class OperationLog(models.Model):
     )
     type = models.CharField(
         null=True,
-        max_length=255  #server or volume
+        max_length=255
     )
     type_id = models.UUIDField(
         null=True
