@@ -40,7 +40,7 @@ class InformViewSet(viewsets.ModelViewSet):
                 initiator_id=request.user.id,
                 initiator_name=request.user
             )
-            self.all_user_url = 'http://ums.cmpdev.yonghui.cn:80/account/queryUserList'
+            self.all_user_url = 'http://it-saas-cloud.yhcloud.svc:9090/account/queryUserList'
             res = requests.get(url=self.all_user_url, headers=headers)
             user_info_all = json.loads(res.text)['data']['records']
             for user_info in user_info_all:
