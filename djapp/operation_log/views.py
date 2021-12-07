@@ -1,4 +1,4 @@
-from rest_framework import mixins, viewsets, status
+from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from djapp.authentication import OSAuthentication
@@ -8,8 +8,8 @@ from .filters import OperationLogFilter
 
 
 class OperationLogViewSet(mixins.ListModelMixin,
-                    mixins.RetrieveModelMixin,
-                    viewsets.GenericViewSet):
+                          mixins.RetrieveModelMixin,
+                          viewsets.GenericViewSet):
     """
     list:
     Get alarm group list
