@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from .fields import IPAddressField
 from .models import OperationLog
 
 
@@ -29,4 +28,3 @@ class OperationLogSerializer(serializers.ModelSerializer):
             'operation_address',
             'created_at'
         )
-
