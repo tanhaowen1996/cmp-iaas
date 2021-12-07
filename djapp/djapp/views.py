@@ -423,7 +423,6 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
     def create(self, request, *args, **kwargs):
         file = request.data['file']
         dis_for = request.data['disk_format']
@@ -436,8 +435,8 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 data['visibility'] = 'private'
             else:
                 data['visibility'] = 'public'
-            image = Image.upload_images(request.os_conn, file,
-                    container_format='bare', disk_format=dis_for, **data)
+            image = Image.upload_images(request.os_conn, file, container_format='bare',
+                                        disk_format=dis_for, **data)
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try creating openstack image {data}: {exc}")
             return Response({
@@ -447,7 +446,7 @@ class ImageViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             if image.properties == {}:
                 des = ""
             else:
-                des= image.properties['description']
+                des = image.properties['description']
             serializer.save(
                 name=image.name,
                 id=image.id,

@@ -20,8 +20,7 @@ class Communication:
             "sign": '永辉超市',
             "smsList": content_list,
         }
-        a = requests.post(url=self.sms_url, headers=key, data=json.dumps(sms_data))
-        print(a.text)
+        requests.post(url=self.sms_url, headers=key, data=json.dumps(sms_data))
 
     def email(self, subject, content, to):
         auth_url = 'http://10.214.214.3:10080/auth/secret/user'
