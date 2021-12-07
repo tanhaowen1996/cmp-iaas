@@ -236,6 +236,7 @@ class Port(models.Model, OpenstackMixin):
     def destroy_os_port(self, os_conn):
         os_conn.network.delete_port(self.os_port_id, ignore_missing=False)
 
+
 class Keypair(models.Model, OpenstackMixin):
     id = models.UUIDField(
         editable=False,
