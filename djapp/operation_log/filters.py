@@ -4,6 +4,7 @@ from django_filters import (
     DateTimeFilter)
 from .models import OperationLog
 
+
 class OperationLogFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
     user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
