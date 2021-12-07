@@ -18,7 +18,6 @@ from .filters import FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDest
 from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
 import logging
 import openstack
-import time
 
 
 logger = logging.getLogger(__package__)
@@ -578,6 +577,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         return_data = []
+
         def save(volume):
             serializer = self.get_serializer(data=data_request)
             serializer.is_valid(raise_exception=True)
@@ -744,7 +744,6 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
         try:
             instance.detached_volume(request.os_conn, instance.server_id)
         except openstack.exceptions.BadRequestException as exc:
@@ -791,18 +790,12 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer = self.get_serializer(instance)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['post'])
-    def attached_list(self, request, *args, **kwargs):
-        qs = super().get_queryset()
-        if not self.request.user.is_staff:
-            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) &
-                           (Q(server_id=None) | Q(server_id=request.data['server_id'])))
+    def list_page(self, qs):
         queryset = self.filter_queryset(qs)
-
         page = self.paginate_queryset(queryset)
         if page is not None:
             for instance in page:
-                volume = instance.get_volume(request.os_conn)
+                volume = instance.get_volume(self.request.os_conn)
                 if instance.status == volume.status:
                     continue
                 serializer = UpdateVolumeSerializer(instance, data=volume)
@@ -812,8 +805,17 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                     attachments=volume.attachments,
                 )
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            return serializer
         serializer = self.get_serializer(queryset, many=True)
+        return serializer
+
+    @action(detail=False, methods=['post'])
+    def attached_list(self, request, *args, **kwargs):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) &
+                           (Q(server_id=None) | Q(server_id=request.data['server_id'])))
+        serializer = self.list_page(qs)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'])
@@ -822,23 +824,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         if not self.request.user.is_staff:
             qs = qs.filter(tenant_id=self.request.account_info['tenantId'],
                            server_id=request.data['server_id'])
-        queryset = self.filter_queryset(qs)
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            for instance in page:
-                volume = instance.get_volume(request.os_conn)
-                if instance.status == volume.status:
-                    continue
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                )
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.list_page(qs)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
