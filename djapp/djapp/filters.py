@@ -56,7 +56,7 @@ class SimpleDestinationTenantNetworkFilter(FilterSet):
         fields = ('tenant_id',)
 
     def filter_destination_tenant(self, queryset, name, value):
-        return queryset.filter(Q(tenants__contains=[{'id': value}]))
+        return queryset.filter(tenants__contains=[{'id': value}])
 
 
 class PortFilter(FilterSet):

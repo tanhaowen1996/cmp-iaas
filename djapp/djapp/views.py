@@ -99,9 +99,9 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
     @action(detail=False, serializer_class=SimpleNetworkSerializer, filterset_class=SimpleDestinationTenantNetworkFilter)
     def destination_networks(self, request, pk=None):
-        qs = Network.objects.all()
+        qs = Network.objects.filter(is_shared=False)
         if not self.request.user.is_staff:
-            qs = qs.filter(Q(tenants__contains=[{'id': self.request.account_info['tenantId']}]))
+            qs = qs.filter(tenants__contains=[{'id': self.request.account_info['tenantId']}])
 
         queryset = self.filter_queryset(qs)
         page = self.paginate_queryset(queryset)

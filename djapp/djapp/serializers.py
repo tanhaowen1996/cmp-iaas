@@ -138,6 +138,7 @@ class FirewallSerializer(serializers.ModelSerializer):
             'source_tenant',
             'source_network_id',
             'source_network_name',
+            'destination_tenant',
             'destination_network_id',
             'destination_network_name',
             'is_allowed',
@@ -146,6 +147,7 @@ class FirewallSerializer(serializers.ModelSerializer):
             'id',
             'source_network_name',
             'destination_network_name',
+            'destination_tenant',
         )
 
     def validate_destination_network_id(self, value):
@@ -173,7 +175,11 @@ class FirewallPlatformSerializer(FirewallSerializer):
     destination_tenant = TenantSerializer()
 
     class Meta(FirewallSerializer.Meta):
-        fields = FirewallSerializer.Meta.fields + ('destination_tenant',)
+        read_only_fields = (
+            'id',
+            'source_network_name',
+            'destination_network_name',
+        )
 
     def validate_destination_network_id(self, value):
         return value
@@ -186,7 +192,7 @@ class FirewallPlatformSerializer(FirewallSerializer):
             raise serializers.ValidationError(f"destination network id {data['destination_network_id']}: {exc}")
         if data['destination_tenant'] not in destination_network.tenants:
             raise serializers.ValidationError(
-                f"the destination network {destination_network} is not shared, and does not belong to destination tenant {data['destination_tenant']['name']}")
+                f"the destination network {destination_network} does not belong to destination tenant {data['destination_tenant']['name']}")
         return data
 
 
