@@ -578,25 +578,6 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         return_data = []
 
-        def save(volume):
-            serializer = self.get_serializer(data=data_request)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(
-                id=volume.id,
-                name=volume.name,
-                description=volume.description,
-                project_id=volume.location.project.id,
-                user_id=request.user.id,
-                is_bootable=volume.is_bootable,
-                volume_type=volume.volume_type,
-                status=volume.status,
-                attachments=volume.attachments,
-                cluster_name=volume.host,
-                user_name=request.user,
-                tenant_id=request.account_info.get('tenantId'),
-                tenant_name=request.account_info.get('tenantName'),
-            )
-            return_data.append(serializer.data)
         try:
             for num in range(int(request.data['num'])):
                 volume = Volume.create_volume(
@@ -604,7 +585,24 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                     name=data['name'],
                     size=data['size'],
                     volume_type=data['volume_type'])
-                save(volume)
+                serializer = self.get_serializer(data=data_request)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(
+                    id=volume.id,
+                    name=volume.name,
+                    description=volume.description,
+                    project_id=volume.location.project.id,
+                    user_id=request.user.id,
+                    is_bootable=volume.is_bootable,
+                    volume_type=volume.volume_type,
+                    status=volume.status,
+                    attachments=volume.attachments,
+                    cluster_name=volume.host,
+                    user_name=request.user,
+                    tenant_id=request.account_info.get('tenantId'),
+                    tenant_name=request.account_info.get('tenantName'),
+                )
+                return_data.append(serializer.data)
 
         except openstack.exceptions.BadRequestException as exc:
             logger.error(f"try create openstack volume {data['name']}:{exc}")
@@ -731,8 +729,6 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save(
                 status="attaching",
-                # attachments=volume.attachments,
-                # device=volume.attachments[0].get('device'),
                 server_name=server.name,
                 server_id=data['server_id'],
             )
