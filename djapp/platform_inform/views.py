@@ -8,7 +8,7 @@ from .models import Inform
 from .serializers import InformSerializer
 import json
 import requests
-headers = {'account-info': ''}
+from .utils import all_user_url, all_user_header
 
 
 class InformViewSet(viewsets.ModelViewSet):
@@ -40,8 +40,7 @@ class InformViewSet(viewsets.ModelViewSet):
                 initiator_id=request.user.id,
                 initiator_name=request.user
             )
-            self.all_user_url = 'http://it-saas-cloud.yhcloud.svc:9090/account/queryUserList'
-            res = requests.get(url=self.all_user_url, headers=headers)
+            res = requests.get(url=all_user_url, headers=all_user_header)
             user_info_all = json.loads(res.text)['data']['records']
             for user_info in user_info_all:
                 models.InformUser.objects.create(informs_id=serializer.data['id'],
@@ -52,14 +51,15 @@ class InformViewSet(viewsets.ModelViewSet):
             if request.data['email_way'] == 1:
                 email_list = []
                 for user_info in user_info_all:
-                    email_list.append(user_info['email'])
+                    if user_info['email'] is not None:
+                        email_list.append(user_info['email'])
                 Communication().email(request.data['name'], request.data['details'], email_list)
             if request.data['sms_way'] == 1:
                 sms_list = []
                 for user_info in user_info_all:
                     sms_dict = {}
                     sms_dict['phoneNumber'] = user_info['phone']
-                    sms_dict['content'] = request.data['name']+"\n"+request.data['details']+'，回复TD退订'
+                    sms_dict['content'] = "(云业务)  " + request.data['name'] + ">>>" + request.data['details'] + '，回复TD退订'
                     sms_list.append(sms_dict)
                 Communication().sms(sms_list)
             return Response(serializer.data)
@@ -89,15 +89,15 @@ class InformViewSet(viewsets.ModelViewSet):
             if request.data['email_way'] == 1:
                 email_list = []
                 for user_info in request.data['inform_user']:
-                    email_list.append(user_info['email'])
+                    if user_info['email'] is not None:
+                        email_list.append(user_info['email'])
                 Communication().email(request.data['name'], request.data['details'], email_list)
             if request.data['sms_way'] == 1:
                 sms_list = []
                 for user_info in request.data['inform_user']:
                     sms_dict = {}
                     sms_dict['phoneNumber'] = user_info['phone']
-                    sms_dict['content'] = request.data['name'] + request.data['details'] + '，回复TD退订'
+                    sms_dict['content'] = "(云业务)  "+request.data['name'] + ">>>" + request.data['details'] + '，回复TD退订'
                     sms_list.append(sms_dict)
                 Communication().sms(sms_list)
-
             return Response(serializer.data)
