@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import Network, Port, Firewall, Keypair, Image, Volume
+from .models import (
+    Network, Port,
+    Firewall, StaticRouting,
+    Keypair, Image, Volume
+)
 
 
 @admin.register(Network)
@@ -20,6 +24,14 @@ class FirewallAdmin(admin.ModelAdmin):
     list_display = ('id', 'name',
                     'source_tenant', 'destination_tenant',
                     'source_network', 'destination_network',
+                    'creater', 'created')
+
+
+@admin.register(StaticRouting)
+class StaticRoutingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name',
+                    'destination_subnet', 'ip_next_hop_address',
+                    'cluster_code', 'tenant',
                     'creater', 'created')
 
 

@@ -8,8 +8,12 @@ from django_filters import (
 from django.db.models import Q
 from django import forms
 from distutils.util import strtobool
-from netfields import InetAddressField
-from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
+from netfields import CidrAddressField, InetAddressField
+from .models import (
+    Network, Port,
+    Firewall, StaticRouting,
+    Keypair, Image, Volume, VolumeType
+)
 
 
 class TenantIDFilter(Filter):
@@ -38,7 +42,7 @@ class NetworkFilter(FilterSet):
 
 
 class SimpleSourceTenantNetworkFilter(FilterSet):
-    tenant_id = TenantIDFilter(field_name='tenants', method='filter_source_tenant')
+    tenant_id = TenantIDFilter(field_name='tenants', method='filter_source_tenant', required=True)
 
     class Meta:
         model = Network
@@ -83,6 +87,42 @@ class FirewallFilter(FilterSet):
     class Meta:
         model = Firewall
         fields = ('source_tenant_id', 'destination_tenant_id', 'source_network_id', 'destination_network_id')
+
+
+class StaticRoutingFilter(FilterSet):
+    name = CharFilter(field_name='name', lookup_expr='icontains')
+    tenant_id = TenantIDFilter(field_name='tenant__id')
+
+    class Meta:
+        model = StaticRouting
+        fields = ('destination_subnet', 'ip_next_hop_address', 'cluster_code')
+        address_field_filter = {
+            'filter_class': CharFilter,
+            'extra': lambda f: {
+                'lookup_expr': 'icontains',
+            },
+        }
+        filter_overrides = {
+            InetAddressField: address_field_filter,
+            CidrAddressField: address_field_filter
+        }
+
+
+class BatchDestroyStaticRoutingsFilter(FilterSet):
+
+    class Meta:
+        model = StaticRouting
+
+        fields = ('ip_next_hop_address', 'cluster_code')
+        address_field_filter = {
+            'filter_class': CharFilter,
+            'extra': lambda f: {
+                'lookup_expr': 'exact',
+            },
+        }
+        filter_overrides = {
+            InetAddressField: address_field_filter,
+        }
 
 
 class KeypairFilter(FilterSet):

@@ -1,21 +1,31 @@
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from .authentication import OSAuthentication
+from .authentication import AccountInfoAuthentication, OSAuthentication
 from .serializers import (
     NetworkSerializer, UpdateNetworkSerializer, NetworkTenantListSerializer,
     SimpleNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
     FirewallSerializer, FirewallPlatformSerializer,
+    StaticRoutingSerializer, BatchDestroyStaticRoutingsSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
     VolumeTypeSerializer,
 )
-from .filters import NetworkFilter, PortFilter, KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
-from .filters import FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDestinationTenantNetworkFilter
-from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
+from .filters import (
+    NetworkFilter, PortFilter,
+    FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDestinationTenantNetworkFilter,
+    StaticRoutingFilter, BatchDestroyStaticRoutingsFilter,
+    KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
+)
+from .models import (
+    Network, Port,
+    Firewall, StaticRouting,
+    Keypair, Image, Volume, VolumeType
+)
 import logging
 import openstack
 
@@ -96,7 +106,8 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, serializer_class=SimpleNetworkSerializer, filterset_class=SimpleDestinationTenantNetworkFilter)
+    @action(detail=False, serializer_class=SimpleNetworkSerializer,
+            filterset_class=SimpleDestinationTenantNetworkFilter)
     def destination_networks(self, request, pk=None):
         qs = Network.objects.filter(is_shared=False)
         if not self.request.user.is_staff:
@@ -287,6 +298,87 @@ class FirewallViewSet(mixins.CreateModelMixin,
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class StaticRoutingViewSet(mixins.CreateModelMixin,
+                           mixins.DestroyModelMixin,
+                           mixins.ListModelMixin,
+                           viewsets.GenericViewSet):
+    authentication_classes = (AccountInfoAuthentication,)
+    filterset_class = StaticRoutingFilter
+    queryset = StaticRouting.objects
+    serializer_class = StaticRoutingSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not self.request.user.is_staff:
+            qs = qs.filter(tenant=self.request.tenant)
+
+        return qs
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            instance = serializer.Meta.model(**serializer.validated_data)
+            instance.create_routing()
+        except Exception as exc:
+            logger.error(f"try creating static routing {serializer.validated_data}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            instance.creater = request.user
+            instance.save(force_insert=True)
+            return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            instance.destroy_routing()
+        except Exception as exc:
+            logger.error(f"try destroying static routing {instance.name}: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            self.perform_destroy(instance)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'])
+    def batch_create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            # TODO
+            serializer
+        except Exception as exc:
+            logger.error(f"try batch creating static routing: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(
+        method='delete',
+        query_serializer=BatchDestroyStaticRoutingsSerializer)
+    @action(detail=False, methods=['delete'],
+            serializer_class=BatchDestroyStaticRoutingsSerializer,
+            filterset_class=BatchDestroyStaticRoutingsFilter)
+    def batch_destroy(self, request, *args, **kwargs):
+        self.get_serializer(data=request.query_params).is_valid(raise_exception=True)
+        queryset = self.filter_queryset(self.get_queryset())
+        try:
+            # TODO
+            queryset
+        except Exception as exc:
+            logger.error(f"try batch destroying static routing: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 

@@ -1,6 +1,11 @@
 from rest_framework import serializers
+from ipaddress import IPv4Interface
 from .fields import IPAddressField
-from .models import Network, Port, Firewall, Keypair, Image, Volume, VolumeType
+from .models import (
+    Network, Port,
+    Firewall, StaticRouting,
+    Keypair, Image, Volume, VolumeType
+)
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -193,6 +198,45 @@ class FirewallPlatformSerializer(FirewallSerializer):
         if data['destination_tenant'] not in destination_network.tenants:
             raise serializers.ValidationError(
                 f"the destination network {destination_network} does not belong to destination tenant {data['destination_tenant']['name']}")
+        return data
+
+
+class StaticRoutingSerializer(serializers.ModelSerializer):
+    ip_next_hop_address = IPAddressField(protocol='IPv4')
+    tenant = TenantSerializer()
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'id', 'name', 'tenant', 'cluster_code',
+            'destination_subnet', 'ip_next_hop_address'
+        )
+
+    def validate(self, data):
+        data = super().validate(data)
+        if isinstance(data['ip_next_hop_address'], str):
+            data['ip_next_hop_address'] = IPv4Interface(data['ip_next_hop_address'])
+
+        return data
+
+
+class BatchDestroyStaticRoutingsSerializer(serializers.ModelSerializer):
+    cluster_code = serializers.CharField(required=False)
+    ip_next_hop_address = IPAddressField(protocol='IPv4', required=False)
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'cluster_code',
+            'ip_next_hop_address'
+        )
+
+    def validate(self, data):
+        data = super().validate(data)
+        if not any(data.values()):
+            raise serializers.ValidationError(
+                f"the one in (cluster_code, ip_next_hop_address) is required")
+
         return data
 
 
