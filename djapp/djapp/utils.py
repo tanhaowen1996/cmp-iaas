@@ -1,5 +1,5 @@
 from django.conf import settings
-from ncclient import manager
+from ncclient import manager, operations
 import openstack
 
 
@@ -13,8 +13,12 @@ class OpenstackMixin:
         return openstack.connect()
 
 
-class NetConfMixin:
+class NetConf:
+    OPERATION_CREATE = 'create'
+    OPERATION_DELETE = 'delete'
+    OPERATION_MERGE = 'merge'
     xmlns = "http://www.h3c.com/netconf/data:1.0"
+    _xmlns_xc = "urn:ietf:params:xml:ns:netconf:base:1.0"
     target_running = 'running'
     max_rule_id = 50000
     timeout = 30
@@ -24,14 +28,17 @@ class NetConfMixin:
     @classmethod
     def get_netconf_conn(cls):
         return manager.connect(
-            host=settings.FIREWALL_HOST,
-            port=settings.FIREWALL_PORT,
-            username=settings.FIREWALL_USERNAME,
-            password=settings.FIREWALL_PASSWORD,
+            host=settings.NETCONF_HOST,
+            port=settings.NETCONF_PORT,
+            username=settings.NETCONF_USERNAME,
+            password=settings.NETCONF_PASSWORD,
             hostkey_verify=False,
             look_for_keys=False,
             manager_params={'timeout': cls.timeout},
             device_params={'name': cls.device_name})
+
+
+class NetConfMixin(NetConf):
 
     def preset_security_policy_id(self, conn):
         xml = f'''<top xmlns="{ self.xmlns }">
@@ -104,3 +111,42 @@ class NetConfMixin:
         </config>'''
         ret = conn.edit_config(target=self.target_running, config=xml)
         return ret.ok, ret.errors
+
+
+FirewallMixin = NetConfMixin  # TODO: remove
+
+
+class StaticRoutingNetConfMixin(NetConf):
+    dest_vrf_index = 0
+    dest_topology_index = 0
+    next_hop_vrf_index = 0
+    if_index = 0
+
+    def create_static_routing(self, conn):
+        return self.edit_static_routing(conn, self.OPERATION_CREATE)
+
+    def delete_static_routing(self, conn):
+        return self.edit_static_routing(conn, self.OPERATION_DELETE)
+
+    def edit_static_routing(self, conn, operation):
+        xml = f'''<config xmlns:xc="{ self._xmlns_xc }">
+            <StaticRoute xmlns="{ self.xmlns }">
+                <Ipv4StaticRouteConfigurations>
+                    <RouteEntry xc:operation="{ operation }">
+                        <DestVrfIndex>{ self.dest_vrf_index }</DestVrfIndex>
+                        <DestTopologyIndex>{ self.dest_topology_index }</DestTopologyIndex>
+                        <Ipv4Address>{ self.destination_subnet.network_address }</Ipv4Address>
+                        <Ipv4PrefixLength>{ self.destination_subnet.prefixlen }</Ipv4PrefixLength>
+                        <NexthopVrfIndex>{ self.next_hop_vrf_index }</NexthopVrfIndex>
+                        <NexthopIpv4Address>{ self.ip_next_hop_address.ip }</NexthopIpv4Address>
+                        <IfIndex>{ self.if_index }</IfIndex>
+                    </RouteEntry>
+                </Ipv4StaticRouteConfigurations>
+            </StaticRoute>
+        </config>'''
+        try:
+            ret = conn.edit_config(target=self.target_running, config=xml)
+        except operations.rpc.RPCError as exc:
+            return False, str(exc)
+        else:
+            return ret.ok, ret.errors
