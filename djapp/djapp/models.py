@@ -4,7 +4,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from netfields import CidrAddressField, InetAddressField,\
     MACAddressField, NetManager
-from .utils import NetConfMixin, OpenstackMixin
+from .utils import FirewallMixin, StaticRoutingNetConfMixin, OpenstackMixin
 import uuid
 from threading import Thread
 
@@ -102,7 +102,7 @@ class Network(models.Model, OpenstackMixin):
         }
 
 
-class Firewall(models.Model, NetConfMixin):
+class Firewall(FirewallMixin, models.Model):
     id = models.PositiveIntegerField(
         editable=False,
         primary_key=True,
@@ -162,6 +162,46 @@ class Firewall(models.Model, NetConfMixin):
     def destroy_rule(self):
         with self.get_netconf_conn() as conn:
             created, errors = self.delete_security_policy_rule(conn)
+            if errors:
+                raise Exception(errors)
+
+
+class StaticRouting(StaticRoutingNetConfMixin, models.Model):
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name=_('static router name'))
+    destination_subnet = CidrAddressField(
+        verbose_name=_('destination subnet'))
+    ip_next_hop_address = InetAddressField(
+        verbose_name=_('ip next hop address'))
+    cluster_code = models.CharField(
+        blank=True,
+        max_length=255,
+        verbose_name=_('cluster code'))
+    tenant = models.JSONField(
+        default=dict,
+        verbose_name=_('tenant obj with id & name'))
+    creater = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        verbose_name=_('creater'))
+    created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('created time'))
+
+    class Meta:
+        unique_together = ('destination_subnet', 'ip_next_hop_address')
+
+    def create_routing(self):
+        with self.get_netconf_conn() as conn:
+            created, errors = self.create_static_routing(conn)
+            if errors:
+                raise Exception(errors)
+
+    def destroy_routing(self):
+        with self.get_netconf_conn() as conn:
+            created, errors = self.delete_static_routing(conn)
             if errors:
                 raise Exception(errors)
 

@@ -38,7 +38,7 @@ class NetConf:
             device_params={'name': cls.device_name})
 
 
-class NetConfMixin(NetConf):
+class FirewallMixin(NetConf):
 
     def preset_security_policy_id(self, conn):
         xml = f'''<top xmlns="{ self.xmlns }">
@@ -111,9 +111,6 @@ class NetConfMixin(NetConf):
         </config>'''
         ret = conn.edit_config(target=self.target_running, config=xml)
         return ret.ok, ret.errors
-
-
-FirewallMixin = NetConfMixin  # TODO: remove
 
 
 class StaticRoutingNetConfMixin(NetConf):
