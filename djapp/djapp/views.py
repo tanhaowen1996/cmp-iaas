@@ -10,7 +10,8 @@ from .serializers import (
     SimpleNetworkSerializer,
     PortSerializer, UpdatePortSerializer,
     FirewallSerializer, FirewallPlatformSerializer,
-    StaticRoutingSerializer, BatchDestroyStaticRoutingsSerializer,
+    StaticRoutingSerializer,
+    BatchDestroyStaticRoutingsSerializer, BatchCreateStaticRoutingsSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
     VolumeTypeSerializer,
@@ -307,7 +308,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
                            viewsets.GenericViewSet):
     authentication_classes = (AccountInfoAuthentication,)
     filterset_class = StaticRoutingFilter
-    queryset = StaticRouting.objects
+    queryset = StaticRouting.objects.all()
     serializer_class = StaticRoutingSerializer
 
     def get_queryset(self):
@@ -346,20 +347,23 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             self.perform_destroy(instance)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], serializer_class=BatchCreateStaticRoutingsSerializer)
     def batch_create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(
+            data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
+        obj_list = serializer.validated_data_list
         try:
-            # TODO
-            serializer
+            StaticRouting.batch_create_static_routing_list(obj_list)
         except Exception as exc:
             logger.error(f"try batch creating static routing: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(status=status.HTTP_201_CREATED)
+            instance_list = StaticRouting.objects.bulk_create(obj_list)
+            return Response(StaticRoutingSerializer(
+                instance_list, many=True).data, status=status.HTTP_201_CREATED)
 
     @swagger_auto_schema(
         method='delete',
@@ -371,14 +375,14 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
         self.get_serializer(data=request.query_params).is_valid(raise_exception=True)
         queryset = self.filter_queryset(self.get_queryset())
         try:
-            # TODO
-            queryset
+            StaticRouting.batch_destroy_static_routing_list(queryset)
         except Exception as exc:
             logger.error(f"try batch destroying static routing: {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
+            queryset.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 

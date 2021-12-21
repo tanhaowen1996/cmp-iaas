@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.template import Context, Template
 from ncclient import manager, operations
 import openstack
 
@@ -18,7 +19,7 @@ class NetConf:
     OPERATION_DELETE = 'delete'
     OPERATION_MERGE = 'merge'
     xmlns = "http://www.h3c.com/netconf/data:1.0"
-    _xmlns_xc = "urn:ietf:params:xml:ns:netconf:base:1.0"
+    xmlns_xc = "urn:ietf:params:xml:ns:netconf:base:1.0"
     target_running = 'running'
     max_rule_id = 50000
     timeout = 30
@@ -118,6 +119,23 @@ class StaticRoutingNetConfMixin(NetConf):
     dest_topology_index = 0
     next_hop_vrf_index = 0
     if_index = 0
+    xml_template = Template('''<config xmlns:xc="{{ cls.xmlns_xc }}">
+    <StaticRoute xmlns="{{ cls.xmlns }}">
+        <Ipv4StaticRouteConfigurations xc:operation="{{ operation }}">
+            {% for obj in obj_list %}
+            <RouteEntry>
+                <DestVrfIndex>{{ obj.dest_vrf_index }}</DestVrfIndex>
+                <DestTopologyIndex>{{ obj.dest_topology_index }}</DestTopologyIndex>
+                <Ipv4Address>{{ obj.destination_subnet.network_address }}</Ipv4Address>
+                <Ipv4PrefixLength>{{ obj.destination_subnet.prefixlen }}</Ipv4PrefixLength>
+                <NexthopVrfIndex>{{ obj.next_hop_vrf_index }}</NexthopVrfIndex>
+                <NexthopIpv4Address>{{ obj.ip_next_hop_address.ip }}</NexthopIpv4Address>
+                <IfIndex>{{ obj.if_index }}</IfIndex>
+            </RouteEntry>
+            {% endfor %}
+        </Ipv4StaticRouteConfigurations>
+    </StaticRoute>
+</config>''')
 
     def create_static_routing(self, conn):
         return self.edit_static_routing(conn, self.OPERATION_CREATE)
@@ -126,23 +144,35 @@ class StaticRoutingNetConfMixin(NetConf):
         return self.edit_static_routing(conn, self.OPERATION_DELETE)
 
     def edit_static_routing(self, conn, operation):
-        xml = f'''<config xmlns:xc="{ self._xmlns_xc }">
-            <StaticRoute xmlns="{ self.xmlns }">
-                <Ipv4StaticRouteConfigurations>
-                    <RouteEntry xc:operation="{ operation }">
-                        <DestVrfIndex>{ self.dest_vrf_index }</DestVrfIndex>
-                        <DestTopologyIndex>{ self.dest_topology_index }</DestTopologyIndex>
-                        <Ipv4Address>{ self.destination_subnet.network_address }</Ipv4Address>
-                        <Ipv4PrefixLength>{ self.destination_subnet.prefixlen }</Ipv4PrefixLength>
-                        <NexthopVrfIndex>{ self.next_hop_vrf_index }</NexthopVrfIndex>
-                        <NexthopIpv4Address>{ self.ip_next_hop_address.ip }</NexthopIpv4Address>
-                        <IfIndex>{ self.if_index }</IfIndex>
-                    </RouteEntry>
-                </Ipv4StaticRouteConfigurations>
-            </StaticRoute>
-        </config>'''
+        xml = self.xml_template.render(Context({
+            'cls': self.__class__,
+            'operation': operation,
+            'obj_list': [self],
+        }))
         try:
             ret = conn.edit_config(target=self.target_running, config=xml)
+        except operations.rpc.RPCError as exc:
+            return False, str(exc)
+        else:
+            return ret.ok, ret.errors
+
+    @classmethod
+    def batch_create_static_routings(cls, conn, obj_list):
+        return cls.batch_edit_static_routings(conn, cls.OPERATION_CREATE, obj_list)
+
+    @classmethod
+    def batch_delete_static_routings(cls, conn, obj_list):
+        return cls.batch_edit_static_routings(conn, cls.OPERATION_DELETE, obj_list)
+
+    @classmethod
+    def batch_edit_static_routings(cls, conn, operation, obj_list):
+        xml = cls.xml_template.render(Context({
+            'cls': cls,
+            'operation': operation,
+            'obj_list': obj_list,
+        }))
+        try:
+            ret = conn.edit_config(target=cls.target_running, config=xml)
         except operations.rpc.RPCError as exc:
             return False, str(exc)
         else:

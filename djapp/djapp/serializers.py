@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from ipaddress import IPv4Interface
+from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
+from ipaddress import IPv4Interface, ip_interface
 from .fields import IPAddressField
 from .models import (
     Network, Port,
@@ -218,6 +219,56 @@ class StaticRoutingSerializer(serializers.ModelSerializer):
             data['ip_next_hop_address'] = IPv4Interface(data['ip_next_hop_address'])
 
         return data
+
+
+class SimpleStaticRoutingSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(
+        allow_blank=True, required=False,
+        validators=[UniqueValidator(queryset=StaticRouting.objects.all())]
+    )
+    ip_next_hop_address = IPAddressField(protocol='IPv4')
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'name', 'destination_subnet', 'ip_next_hop_address'
+        )
+        validators = [
+            UniqueTogetherValidator(
+                queryset=StaticRouting.objects.all(),
+                fields=['destination_subnet', 'ip_next_hop_address']
+            )
+        ]
+
+
+class BatchCreateStaticRoutingsSerializer(serializers.ModelSerializer):
+    tenant = TenantSerializer()
+    static_routings = serializers.ListField(
+        child=SimpleStaticRoutingSerializer(),
+        max_length=50
+    )
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'tenant', 'cluster_code', 'static_routings'
+        )
+
+    def validate_static_routings(self, value):
+        # TODO
+        return value
+
+    @property
+    def validated_data_list(self):
+        data = self.validated_data
+        return [self.Meta.model(
+            name=routing['name'] or 'next {ip_next_hop_address} to {destination_subnet}'.format(**routing),
+            tenant=data['tenant'],
+            creater=self._context['request'].user,
+            cluster_code=data['cluster_code'],
+            destination_subnet=routing['destination_subnet'],
+            ip_next_hop_address=ip_interface(routing['ip_next_hop_address']),
+        ) for routing in data['static_routings']]
 
 
 class BatchDestroyStaticRoutingsSerializer(serializers.ModelSerializer):

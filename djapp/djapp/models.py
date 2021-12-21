@@ -201,7 +201,21 @@ class StaticRouting(StaticRoutingNetConfMixin, models.Model):
 
     def destroy_routing(self):
         with self.get_netconf_conn() as conn:
-            created, errors = self.delete_static_routing(conn)
+            deleted, errors = self.delete_static_routing(conn)
+            if errors:
+                raise Exception(errors)
+
+    @classmethod
+    def batch_create_static_routing_list(cls, obj_list):
+        with cls.get_netconf_conn() as conn:
+            created, errors = cls.batch_create_static_routings(conn, obj_list)
+            if errors:
+                raise Exception(errors)
+
+    @classmethod
+    def batch_destroy_static_routing_list(cls, obj_list):
+        with cls.get_netconf_conn() as conn:
+            deleted, errors = cls.batch_delete_static_routings(conn, obj_list)
             if errors:
                 raise Exception(errors)
 
