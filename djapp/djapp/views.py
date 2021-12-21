@@ -448,6 +448,8 @@ class KeypairViewSet(viewsets.ModelViewSet):
                 tenant_name=request.account_info.get('tenantName'),
             )
             headers = self.get_success_headers(serializer.data)
+            if data.get('public_key'):
+                return Response(status=status.HTTP_201_CREATED, headers=headers)
             return Response(ssh.private_key, status=status.HTTP_201_CREATED, headers=headers)
 
     def destroy(self, request, *args, **kwargs):
