@@ -21,7 +21,7 @@ class InformViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(Q(info__user_id=self.request.account_info['id']) | Q(inform_tenant=self.request.account_info['tenantId']))
+            qs = qs.filter(Q(info__user_id=self.request.account_info['id']) | Q(inform_tenant=self.request.account_info['tenantId'] & Q(inform_tenant="全平台")))
         return qs
 
     def create(self, request, *args, **kwargs):
