@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
+from rest_framework.validators import UniqueTogetherValidator
 from ipaddress import IPv4Interface, ip_interface
 from .fields import IPAddressField
 from .models import (
@@ -222,16 +222,12 @@ class StaticRoutingSerializer(serializers.ModelSerializer):
 
 
 class SimpleStaticRoutingSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(
-        allow_blank=True, required=False,
-        validators=[UniqueValidator(queryset=StaticRouting.objects.all())]
-    )
     ip_next_hop_address = IPAddressField(protocol='IPv4')
 
     class Meta:
         model = StaticRouting
         fields = (
-            'name', 'destination_subnet', 'ip_next_hop_address'
+            'destination_subnet', 'ip_next_hop_address'
         )
         validators = [
             UniqueTogetherValidator(
@@ -262,7 +258,7 @@ class BatchCreateStaticRoutingsSerializer(serializers.ModelSerializer):
     def validated_data_list(self):
         data = self.validated_data
         return [self.Meta.model(
-            name=routing['name'] or 'next {ip_next_hop_address} to {destination_subnet}'.format(**routing),
+            name='{ip_next_hop_address}->{destination_subnet}'.format(**routing),
             tenant=data['tenant'],
             creater=self._context['request'].user,
             cluster_code=data['cluster_code'],
