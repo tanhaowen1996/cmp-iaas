@@ -9,6 +9,7 @@ from .serializers import InformSerializer
 import json
 import requests
 from .utils import all_user_url, all_user_header
+from django.db.models import Q
 
 
 class InformViewSet(viewsets.ModelViewSet):
@@ -20,7 +21,7 @@ class InformViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(info__user_id=self.request.account_info['id'])
+            qs = qs.filter(Q(info__user_id=self.request.account_info['id']) | Q(inform_tenant=self.request.account_info['tenantId']))
         return qs
 
     def create(self, request, *args, **kwargs):
