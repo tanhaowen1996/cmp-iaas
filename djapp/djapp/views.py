@@ -425,8 +425,8 @@ class KeypairViewSet(viewsets.ModelViewSet):
                 ssh = Keypair.create_keypair(
                     request.os_conn,
                     key_name=data['name'])
-        except openstack.exceptions.BadRequestException as exc:
-            logger.error(f"try creating openstack keypair {data['name']} with {data['public_key']}: {exc}")
+        except openstack.exceptions.HttpException as exc:
+            logger.error(f"try creating openstack keypair {data['name']} : {exc}")
             return Response({
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -450,7 +450,7 @@ class KeypairViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             instance.destroy_keypair(request.os_conn)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try destroying openstack ssh key {instance.name}:{exc}")
             return Response({
                 "detail": f"{exc}"
@@ -695,7 +695,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 )
                 return_data.append(serializer.data)
 
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try create openstack volume {data['name']}:{exc}")
             return Response({
                 "detail": f"{exc}"
@@ -708,7 +708,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         try:
             instance.destroy_volume(request.os_conn)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try destroying openstack volume {instance.name}:{exc}")
             return Response({
                 "detail": f"{exc}"
@@ -759,7 +759,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 )
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
             return Response({
                 "detail": f"{exc}"
@@ -808,7 +808,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         data = serializer.validated_data
         try:
             instance.attached_volume(request.os_conn, data['server_id'])
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try attached openstack volume {instance.name}:{exc}")
             return Response({
                 "detail": f"{exc}"
@@ -861,7 +861,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
 
         try:
             instance.extend_volume(request.os_conn, new_size=data['size'])
-        except openstack.exceptions.BadRequestException as exc:
+        except openstack.exceptions.HttpException as exc:
             logger.error(f"try detached openstack volume {instance.name}:{exc}")
             return Response({
                 "detail": f"{exc}"
