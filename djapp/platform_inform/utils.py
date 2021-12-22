@@ -1,6 +1,6 @@
 all_user_url = 'http://it-saas-cloud.yhcloud.svc:9090/account/queryUserList'
 
-all_user_header = {'account-info': ''}
+all_user_header = {'account-info': '{}'}
 
 auth_url = 'http://10.214.214.3:10080/auth/secret/user'
 
