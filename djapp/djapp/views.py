@@ -670,7 +670,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
+            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) & Q(is_bootable="False"))
         return qs
 
     def create(self, request, *args, **kwargs):
