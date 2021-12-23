@@ -580,7 +580,7 @@ class NetworkSyncer:
         def _remove_network(db_obj):
             LOG.info("Remove unknown network: %s" % db_obj.id)
             # remove network ports first:
-            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            NetworkSyncer._do_network_ports_sync(db_obj.id, user, project)
             # remove network db:
             db_obj.delete()
 
@@ -994,7 +994,7 @@ class UserSyncer(Syncer):
 
     def do(self):
         LOG.info("Start ...")
-        self.do_admin_sync()
+        ## self.do_admin_sync()
         self.do_tenants_sync_from_uum()
         LOG.info("Done ...")
 
