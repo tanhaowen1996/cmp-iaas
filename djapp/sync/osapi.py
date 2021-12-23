@@ -206,10 +206,13 @@ class CinderAPI(object):
                                       interface=interface)
         return cls(client)
 
-    def get_volumes(self, project_id=None):
+    def get_volumes(self, all_tenants=True, project_id=None):
         search_opts = {}
+        if all_tenants:
+            search_opts['all_tenants'] = all_tenants
         if project_id:
             search_opts['project_id'] = project_id
+
         return self.client.volumes.list(detailed=True,
                                         search_opts=search_opts)
 
@@ -275,8 +278,11 @@ if __name__ == '__main__':
     def test_volume():
         print("List Volumes:")
         cinder_api = CinderAPI.create()
-        # for volume in cinder_api.get_volumes():
-        #    print(volume)
+
+        project_id = 'e07c873ff7604b9890e616a002116b6f'
+
+        for volume in cinder_api.get_volumes(project_id=project_id):
+            print(volume)
 
         """
         volume = cinder_api.get_volumes()[0]
@@ -285,8 +291,8 @@ if __name__ == '__main__':
         print('----------------------------------')
         print('to_dict: %s' % volume.to_dict())
         """
-        for volume_type in cinder_api.get_volume_types():
-            print(volume_type.to_dict())
+        # for volume_type in cinder_api.get_volume_types():
+        #    print(volume_type.to_dict())
 
     def test_instance():
         nova_api = NovaAPI.create()
@@ -344,8 +350,8 @@ if __name__ == '__main__':
 
     # test_image()
     # test_instance()
-    # test_volume()
-    test_network()
+    test_volume()
+    # test_network()
     # test_port()
 
     def test_keypair():

@@ -446,6 +446,7 @@ class VolumeSyncer:
         # get project volumes:
         db_objects = models.Volume.objects.filter(project_id=project_id)
         os_objects = cinder_api().get_volumes(project_id=project_id)
+
         os_objects = (os_obj.to_dict() for os_obj in os_objects)
         os_objects = [os_obj for os_obj in os_objects
                       if os_obj.get('os-vol-tenant-attr:tenant_id') == project_id]
@@ -563,6 +564,9 @@ class NetworkSyncer:
 
         db_obj.creater_id = user.get('userId')
 
+        # add project_id:
+        db_obj.project_id = project.get('id')
+
         db_obj.created = os_obj.get('created_at')
         db_obj.modified = os_obj.get('updated_at')
 
@@ -571,7 +575,7 @@ class NetworkSyncer:
         # user and project are required
         user_id, project_id = user.get('userId'), project.get('id')
         # filter by user_id and project_id
-        db_objects = models.Network.objects.filter(creater_id=user_id)
+        db_objects = models.Network.objects.filter(project_id=project_id)
         os_objects = neutron_api().get_networks(tenant_id=project_id)
 
         LOG.info("Start to syncing Networks for user: %s to project: %s..."
@@ -580,7 +584,7 @@ class NetworkSyncer:
         def _remove_network(db_obj):
             LOG.info("Remove unknown network: %s" % db_obj.id)
             # remove network ports first:
-            NetworkSyncer._do_network_ports_sync(db_obj.id)
+            NetworkSyncer._do_network_ports_sync(db_obj.id, user, project)
             # remove network db:
             db_obj.delete()
 
