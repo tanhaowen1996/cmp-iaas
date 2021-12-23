@@ -492,8 +492,12 @@ class Volume(models.Model, OpenstackMixin):
         null=True,
         max_length=255
     )
-    project_id = models.UUIDField(
-        null=True
+    # project_id = models.UUIDField(
+    #    null=True
+    # )
+    project_id = models.CharField(
+        null=True,
+        max_length=36
     )
     user_id = models.CharField(
         null=True,
