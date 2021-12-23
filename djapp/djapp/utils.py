@@ -2,9 +2,13 @@ from django.conf import settings
 from django.template import Context, Template
 from ncclient import manager, operations
 import openstack
+import logging
 
 
 openstack.enable_logging(debug=settings.DEBUG)
+
+
+logger = logging.getLogger(__package__)
 
 
 class OpenstackMixin:
@@ -174,6 +178,8 @@ class StaticRoutingNetConfMixin(NetConf):
         try:
             ret = conn.edit_config(target=cls.target_running, config=xml)
         except operations.rpc.RPCError as exc:
+            logger.error(f"netconf edit config:{xml}, result: {exc}")
             return False, str(exc)
         else:
+            logger.info(f"netconf edit config:{xml}, result: ok")
             return ret.ok, ret.errors

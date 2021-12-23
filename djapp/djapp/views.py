@@ -349,6 +349,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
 
     @action(detail=False, methods=['post'], serializer_class=BatchCreateStaticRoutingsSerializer)
     def batch_create(self, request, *args, **kwargs):
+        logger.info(f"start batch creating static routing")
         serializer = self.get_serializer(
             data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
@@ -362,6 +363,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             instance_list = StaticRouting.objects.bulk_create(obj_list)
+            logger.info(f"finished batch creating static routing")
             return Response(StaticRoutingSerializer(
                 instance_list, many=True).data, status=status.HTTP_201_CREATED)
 
@@ -372,8 +374,11 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             serializer_class=BatchDestroyStaticRoutingsSerializer,
             filterset_class=BatchDestroyStaticRoutingsFilter)
     def batch_destroy(self, request, *args, **kwargs):
+        logger.info(f"start batch destroying static routing")
         self.get_serializer(data=request.query_params).is_valid(raise_exception=True)
         queryset = self.filter_queryset(self.get_queryset())
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
         try:
             StaticRouting.batch_destroy_static_routing_list(queryset)
         except Exception as exc:
@@ -383,6 +388,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             queryset.delete()
+            logger.info(f"finished batch destroying static routing")
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
