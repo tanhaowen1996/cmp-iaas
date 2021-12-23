@@ -32,6 +32,11 @@ class Network(models.Model, OpenstackMixin):
     name = models.CharField(
         max_length=255,
         verbose_name=_('network name'))
+    project_id = models.CharField(
+        blank=True,
+        null=True,
+        max_length=36,
+        verbose_name=_('project id'))
     cidr = CidrAddressField()
     total_interface = models.PositiveIntegerField()
     vlan_id = models.PositiveSmallIntegerField(
