@@ -1,6 +1,12 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
+from ipaddress import IPv4Interface, ip_interface
 from .fields import IPAddressField
-from .models import Network, Port, Keypair, Image, Volume, VolumeType
+from .models import (
+    Network, Port,
+    Firewall, StaticRouting,
+    Keypair, Image, Volume, VolumeType
+)
 
 
 class NetworkSerializer(serializers.ModelSerializer):
@@ -14,6 +20,7 @@ class NetworkSerializer(serializers.ModelSerializer):
             'name',
             'cidr',
             'total_interface',
+            'total_attached_interface',
             'vlan_id',
             'category',
             'is_shared',
@@ -23,7 +30,7 @@ class NetworkSerializer(serializers.ModelSerializer):
             'modified'
         )
         read_only_fields = (
-            'id', 'total_interface',
+            'id', 'total_interface', 'total_attached_interface',
             'os_network_id', 'os_subnet_id',
             'tenants',
             'created', 'modified',
@@ -43,6 +50,17 @@ class UpdateNetworkSerializer(serializers.ModelSerializer):
         fields = (
             'name',
             'description',
+        )
+
+
+class SimpleNetworkSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Network
+        fields = (
+            'id',
+            'name',
+            'cidr',
         )
 
 
@@ -84,6 +102,7 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_external',
+            'server_name',
             'creater_name',
             'created',
             'modified',
@@ -91,6 +110,7 @@ class PortSerializer(serializers.ModelSerializer):
         read_only_fields = (
             'id', 'network_name',
             'mac_address',
+            'server_name',
             'creater_name',
             'created', 'modified',
         )
@@ -109,6 +129,162 @@ class UpdatePortSerializer(serializers.ModelSerializer):
         fields = (
             'name',
         )
+
+
+class FirewallSerializer(serializers.ModelSerializer):
+    source_tenant = TenantSerializer()
+    source_network_id = serializers.UUIDField()
+    destination_network_id = serializers.UUIDField()
+
+    class Meta:
+        model = Firewall
+        fields = (
+            'id',
+            'name',
+            'source_tenant',
+            'source_network_id',
+            'source_network_name',
+            'destination_tenant',
+            'destination_network_id',
+            'destination_network_name',
+            'is_allowed',
+        )
+        read_only_fields = (
+            'id',
+            'source_network_name',
+            'destination_network_name',
+            'destination_tenant',
+        )
+
+    def validate_destination_network_id(self, value):
+        try:
+            destination_network = Network.objects.get(id=value, is_shared=False)
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"destination network id {value}: {exc}")
+        if self.context['request'].account_info.get('tenantId') not in [t['id'] for t in destination_network.tenants]:
+            raise serializers.ValidationError(
+                f"the destination network {destination_network} does not belong to current tenant {self.context['request'].account_info.get('tenant_id')}")
+        return value
+
+    def validate(self, data):
+        try:
+            source_network = Network.objects.get(id=data['source_network_id'])
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
+        if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+            raise serializers.ValidationError(
+                f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+        return data
+
+
+class FirewallPlatformSerializer(FirewallSerializer):
+    destination_tenant = TenantSerializer()
+
+    class Meta(FirewallSerializer.Meta):
+        read_only_fields = (
+            'id',
+            'source_network_name',
+            'destination_network_name',
+        )
+
+    def validate_destination_network_id(self, value):
+        return value
+
+    def validate(self, data):
+        data = super().validate(data)
+        try:
+            destination_network = Network.objects.get(id=data['destination_network_id'])
+        except Network.DoesNotExist as exc:
+            raise serializers.ValidationError(f"destination network id {data['destination_network_id']}: {exc}")
+        if data['destination_tenant'] not in destination_network.tenants:
+            raise serializers.ValidationError(
+                f"the destination network {destination_network} does not belong to destination tenant {data['destination_tenant']['name']}")
+        return data
+
+
+class StaticRoutingSerializer(serializers.ModelSerializer):
+    ip_next_hop_address = IPAddressField(protocol='IPv4')
+    tenant = TenantSerializer()
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'id', 'name', 'tenant', 'cluster_code',
+            'destination_subnet', 'ip_next_hop_address'
+        )
+
+    def validate(self, data):
+        data = super().validate(data)
+        if isinstance(data['ip_next_hop_address'], str):
+            data['ip_next_hop_address'] = IPv4Interface(data['ip_next_hop_address'])
+
+        return data
+
+
+class SimpleStaticRoutingSerializer(serializers.ModelSerializer):
+    ip_next_hop_address = IPAddressField(protocol='IPv4')
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'destination_subnet', 'ip_next_hop_address'
+        )
+        validators = [
+            UniqueTogetherValidator(
+                queryset=StaticRouting.objects.all(),
+                fields=['destination_subnet', 'ip_next_hop_address']
+            )
+        ]
+
+
+class BatchCreateStaticRoutingsSerializer(serializers.ModelSerializer):
+    tenant = TenantSerializer()
+    static_routings = serializers.ListField(
+        child=SimpleStaticRoutingSerializer(),
+        max_length=50
+    )
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'tenant', 'cluster_code', 'static_routings'
+        )
+
+    def validate_static_routings(self, value):
+        # TODO
+        return value
+
+    @property
+    def validated_data_list(self):
+        data = self.validated_data
+        return [self.Meta.model(
+            name='{ip_next_hop_address}->{destination_subnet}'.format(**routing),
+            tenant=data['tenant'],
+            creater=self._context['request'].user,
+            cluster_code=data['cluster_code'],
+            destination_subnet=routing['destination_subnet'],
+            ip_next_hop_address=ip_interface(routing['ip_next_hop_address']),
+        ) for routing in data['static_routings']]
+
+
+class BatchDestroyStaticRoutingsSerializer(serializers.ModelSerializer):
+    cluster_code = serializers.CharField(required=False)
+    ip_next_hop_address = IPAddressField(protocol='IPv4', required=False)
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'cluster_code',
+            'ip_next_hop_address'
+        )
+
+    def validate(self, data):
+        data = super().validate(data)
+        if not any(data.values()):
+            raise serializers.ValidationError(
+                f"the one in (cluster_code, ip_next_hop_address) is required")
+
+        return data
 
 
 class KeypairSerializer(serializers.ModelSerializer):

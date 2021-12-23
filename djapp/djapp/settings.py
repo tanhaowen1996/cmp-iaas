@@ -42,8 +42,10 @@ INSTALLED_APPS = [
     'drf_yasg',
     'resource_application',
     'message_board',
+    'operation_log',
     'djapp',
     'sync',
+    'platform_inform',
 ]
 
 REST_FRAMEWORK = {
@@ -60,6 +62,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'djapp.middleware.HealthCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,6 +73,8 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'djapp.urls'
+
+HEALTH_CHECK_PATH = os.getenv('HEALTH_CHECK_PATH', '/health')
 
 TEMPLATES = [
     {
@@ -188,6 +193,18 @@ OS_TOKEN_KEY = os.getenv('OPENSTACK_TOKEN_KEY', 'Os-Token')
 # OS_IDENTITY_API_VERSION = int(os.getenv('OS_IDENTITY_API_VERSION', 3))
 
 # OS_REGION_NAME = os.getenv('OS_REGION_NAME', 'RegionOne')
+
+
+# NETCONF netconf
+
+NETCONF_HOST = os.getenv('NETCONF_HOST', '127.0.0.1')
+
+NETCONF_PORT = int(os.getenv('NETCONF_PORT', 830))
+
+NETCONF_USERNAME = os.getenv('NETCONF_USERNAME', 'NETCONF_USERNAME')
+
+NETCONF_PASSWORD = os.getenv('NETCONF_PASSWORD', 'NETCONF_PASSWORD')
+
 
 ACCOUNT_INFO_KEY = os.getenv('ACCOUNT_INFO_KEY', 'Account-Info')
 
