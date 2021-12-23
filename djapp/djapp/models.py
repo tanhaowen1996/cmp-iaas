@@ -106,6 +106,11 @@ class Network(models.Model, OpenstackMixin):
             'allocation_pools': subnet.allocation_pools
         }
 
+    def get_ports_by_tenant_id(self, tenant_id):
+        return Port.objects.filter(id__in=InstancePort.objects.filter(
+            server_id__in=Instance.objects.filter(tenant_id=tenant_id).values_list('id')
+        ).values_list('port_id'), network=self)
+
 
 class Firewall(FirewallMixin, models.Model):
     id = models.PositiveIntegerField(

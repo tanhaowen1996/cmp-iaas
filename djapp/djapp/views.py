@@ -63,6 +63,9 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     tenants:
     set related tenant list for instance
 
+    release:
+    remove current tenant from the tenant list of instance
+
     verbosity:
     Get instance detail info
     """
@@ -87,6 +90,21 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def release(self, request, pk=None):
+        instance = self.get_object()
+        if request.tenant in instance.tenants:
+            ports = instance.get_ports_by_tenant_id(request.tenant['id'])
+            if ports.exists():
+                return Response({
+                    "detail": f"{ ports } of servers are in use"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            instance.tenants.remove(request.tenant)
+            instance.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'])
     def verbosity(self, request, pk=None):
