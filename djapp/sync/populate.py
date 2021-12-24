@@ -1060,6 +1060,9 @@ class UserSyncer(Syncer):
             self._sync_user_resource(user)
 
     def _sync_user_resource(self, user):
+        if not user:
+            LOG.warning("User is None! pass ...")
+
         projects = user.get('projects', [])
         LOG.info("Got %s projects from user: %s" % (len(projects), user.get('userId')))
         for project in projects:
