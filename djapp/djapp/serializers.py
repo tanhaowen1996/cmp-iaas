@@ -132,8 +132,8 @@ class UpdatePortSerializer(serializers.ModelSerializer):
 
 
 class FirewallSerializer(serializers.ModelSerializer):
-    source_tenant = TenantSerializer()
-    source_network_id = serializers.UUIDField()
+    source_tenant = TenantSerializer(allow_null=True, required=False)
+    source_network_id = serializers.UUIDField(allow_null=True, required=False)
     destination_network_id = serializers.UUIDField()
 
     class Meta:
@@ -167,13 +167,18 @@ class FirewallSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        try:
-            source_network = Network.objects.get(id=data['source_network_id'])
-        except Network.DoesNotExist as exc:
-            raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
-        if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+        if data.get('source_tenant') and data.get('source_network_id'):
+            try:
+                source_network = Network.objects.get(id=data['source_network_id'])
+            except Network.DoesNotExist as exc:
+                raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
+            if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+                raise serializers.ValidationError(
+                    f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+        elif bool(data.get('source_tenant')) is not bool(data.get('source_network_id')):
             raise serializers.ValidationError(
-                f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+                f"the source tenant or source network id is missing")
+
         return data
 
 

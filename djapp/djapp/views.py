@@ -266,7 +266,7 @@ class FirewallViewSet(mixins.CreateModelMixin,
                       mixins.DestroyModelMixin,
                       mixins.ListModelMixin,
                       viewsets.GenericViewSet):
-    authentication_classes = (OSAuthentication,)
+    authentication_classes = (AccountInfoAuthentication,)
     filterset_class = FirewallFilter
     queryset = Firewall.objects.all()
     serializer_class = FirewallSerializer
@@ -299,10 +299,8 @@ class FirewallViewSet(mixins.CreateModelMixin,
         else:
             instance.creater = request.user
             if not self.request.user.is_staff:
-                instance.destination_tenant = {
-                    'id': self.request.account_info.get('tenantId'),
-                    'name': self.request.account_info.get('tenantName'),
-                }
+                instance.destination_tenant = self.request.tenant
+
             instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 

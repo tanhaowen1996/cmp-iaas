@@ -29,6 +29,7 @@ class NetConf:
     timeout = 30
     device_name = 'h3c'
     is_allowed = True
+    any_network = 'Any'
 
     @classmethod
     def get_netconf_conn(cls):
@@ -66,8 +67,8 @@ class FirewallMixin(NetConf):
             raise Exception('no security policy ipv4 rules, please check device')
 
     def create_security_policy_rule(self, conn):
-        xml = f'''<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0">
-            <top xmlns="http://www.h3c.com/netconf/config:1.0" xc:operation="create">
+        xml = f'''<config xmlns:xc="{ self.xmlns_xc }">
+            <top xmlns="http://www.h3c.com/netconf/config:1.0" xc:operation="{ self.OPERATION_CREATE }">
                 <SecurityPolicies>
                     <IPv4Rules>
                         <Rule>
@@ -82,7 +83,7 @@ class FirewallMixin(NetConf):
                             <SeqNum>1</SeqNum>
                             <IsIncrement>true</IsIncrement>
                             <NameList>
-                                <NameItem>{ self.source_network.name }</NameItem>
+                                <NameItem>{ self.source_network.name if self.source_network else self.any_network }</NameItem>
                             </NameList>
                         </SrcSecZone>
                     </IPv4SrcSecZone>
@@ -99,23 +100,31 @@ class FirewallMixin(NetConf):
                 </SecurityPolicies>
             </top>
         </config>'''
-        ret = conn.edit_config(target=self.target_running, config=xml)
-        return (ret.ok, ret.errors)
+        return self.edit_security_policy_rule(conn, xml)
 
     def delete_security_policy_rule(self, conn):
         xml = f'''<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0">
             <top xmlns="http://www.h3c.com/netconf/config:1.0">
                 <SecurityPolicies>
                     <IPv4Rules>
-                        <Rule xc:operation="delete">
+                        <Rule xc:operation="{ self.OPERATION_DELETE }">
                             <ID>{ self.id }</ID>
                         </Rule>
                     </IPv4Rules>
                 </SecurityPolicies>
             </top>
         </config>'''
-        ret = conn.edit_config(target=self.target_running, config=xml)
-        return ret.ok, ret.errors
+        return self.edit_security_policy_rule(conn, xml)
+
+    def edit_security_policy_rule(self, conn, xml):
+        try:
+            ret = conn.edit_config(target=self.target_running, config=xml)
+        except operations.rpc.RPCError as exc:
+            logger.error(f"netconf edit config:{xml}, result: {exc}")
+            return False, str(exc)
+        else:
+            logger.info(f"netconf edit config:{xml}, result: ok")
+            return (ret.ok, ret.errors)
 
 
 class StaticRoutingNetConfMixin(NetConf):

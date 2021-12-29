@@ -122,10 +122,13 @@ class Firewall(FirewallMixin, models.Model):
         unique=True,
         verbose_name=_('rule name'))
     source_tenant = models.JSONField(
-        default=dict,
+        blank=True,
+        null=True,
         verbose_name=_('source tenant obj with id & name'))
     source_network = models.ForeignKey(
         Network,
+        blank=True,
+        null=True,
         related_name='source_network',
         on_delete=models.PROTECT,
         verbose_name=_('source network'))
