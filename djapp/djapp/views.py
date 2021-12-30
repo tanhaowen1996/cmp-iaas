@@ -11,6 +11,8 @@ from .serializers import (
     PortSerializer, UpdatePortSerializer,
     FirewallSerializer, FirewallPlatformSerializer,
     StaticRoutingSerializer,
+    StaticRoutingDestinationSubnetSerializer,
+    UpdateDestinationSubnetSerializer,
     BatchDestroyStaticRoutingsSerializer, BatchCreateStaticRoutingsSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
@@ -20,6 +22,7 @@ from .filters import (
     NetworkFilter, PortFilter,
     FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDestinationTenantNetworkFilter,
     StaticRoutingFilter, BatchDestroyStaticRoutingsFilter,
+    StaticRoutingDestinationSubnetFilter,
     KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
 )
 from .models import (
@@ -349,6 +352,31 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             instance.creater = request.user
             instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(
+        method='put',
+        query_serializer=StaticRoutingDestinationSubnetSerializer)
+    @action(detail=False, methods=['put'],
+            filterset_class=StaticRoutingDestinationSubnetFilter,
+            serializer_class=UpdateDestinationSubnetSerializer)
+    def update_destination_subnet(self, request, *args, **kwargs):
+        logger.info(f"start updating static routing")
+        queryset = self.filter_queryset(self.get_queryset())
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        instance = queryset.get()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save(creater=request.user)
+        except Exception as exc:
+            logger.error(f"try updating static routing: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            logger.info(f"finished updating static routing")
+            return Response(StaticRoutingSerializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -226,6 +226,28 @@ class StaticRoutingSerializer(serializers.ModelSerializer):
         return data
 
 
+class StaticRoutingDestinationSubnetSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'cluster_code', 'ip_next_hop_address'
+        )
+
+
+class UpdateDestinationSubnetSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'destination_subnet',
+        )
+
+    def save(self, **kwargs):
+        self.instance.update_routing(**self.validated_data)
+        return super().save(**kwargs)
+
+
 class SimpleStaticRoutingSerializer(serializers.ModelSerializer):
     ip_next_hop_address = IPAddressField(protocol='IPv4')
 

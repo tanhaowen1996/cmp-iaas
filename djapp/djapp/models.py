@@ -204,7 +204,10 @@ class StaticRouting(StaticRoutingNetConfMixin, models.Model):
         verbose_name=_('created time'))
 
     class Meta:
-        unique_together = ('destination_subnet', 'ip_next_hop_address')
+        unique_together = (
+            ('cluster_code', 'ip_next_hop_address'),
+            ('destination_subnet', 'ip_next_hop_address')
+        )
 
     def create_routing(self):
         with self.get_netconf_conn() as conn:
@@ -215,6 +218,12 @@ class StaticRouting(StaticRoutingNetConfMixin, models.Model):
     def destroy_routing(self):
         with self.get_netconf_conn() as conn:
             deleted, errors = self.delete_static_routing(conn)
+            if errors:
+                raise Exception(errors)
+
+    def update_routing(self, destination_subnet=None):
+        with self.get_netconf_conn() as conn:
+            updated, errors = self.update_static_routing(conn, destination_subnet)
             if errors:
                 raise Exception(errors)
 
