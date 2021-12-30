@@ -23,6 +23,26 @@ class Inform(models.Model):
         indexes = (BrinIndex(fields=['created']),)
         ordering = ('-created',)
 
+    @classmethod
+    def post_sms(cls, user_info_all, request):
+        sms_list = []
+        for user_info in user_info_all:
+            sms_dict = {}
+            sms_dict['phoneNumber'] = user_info['phone']
+            sms_dict['content'] = "(云业务)  " + request.data['name'] + "  >>>  " + request.data['details'] + '，回复TD退订'
+            sms_list.append(sms_dict)
+        print(sms_list)
+        return sms_list
+
+    @classmethod
+    def post_email(cls, user_info_all):
+        email_list = []
+        for user_info in user_info_all:
+            if user_info['email'] is not None:
+                email_list.append(user_info['email'])
+        print(email_list)
+        return email_list
+
 
 class InformUser(models.Model):
     user_id = models.CharField(max_length=100)
@@ -31,8 +51,7 @@ class InformUser(models.Model):
     email = models.CharField(max_length=100, null=True, blank=True)
     wecom = models.CharField(max_length=100, null=True, blank=True)
     employeeNo = models.CharField(max_length=100, null=True, blank=True)
-    informs = models.ForeignKey(Inform, max_length=100, related_name="info",
-                                on_delete=models.CASCADE)
+    informs = models.ForeignKey(Inform, max_length=100, related_name="info", on_delete=models.CASCADE)
 
     class Meta:
         indexes = (BrinIndex(fields=['name']),)
