@@ -294,16 +294,9 @@ class BatchCreateStaticRoutingsSerializer(serializers.ModelSerializer):
         ) for routing in data['static_routings']]
 
 
-class BatchDestroyStaticRoutingsSerializer(serializers.ModelSerializer):
+class BatchDestroyStaticRoutingsSerializer(serializers.Serializer):
     cluster_code = serializers.CharField(required=False)
     ip_next_hop_address = IPAddressField(protocol='IPv4', required=False)
-
-    class Meta:
-        model = StaticRouting
-        fields = (
-            'cluster_code',
-            'ip_next_hop_address'
-        )
 
     def validate(self, data):
         data = super().validate(data)
