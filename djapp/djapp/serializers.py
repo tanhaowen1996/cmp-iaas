@@ -102,6 +102,8 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_external',
+            'is_vip',
+            'description',
             'server_name',
             'creater_name',
             'created',
@@ -128,6 +130,7 @@ class UpdatePortSerializer(serializers.ModelSerializer):
         model = Port
         fields = (
             'name',
+            'description',
         )
 
 

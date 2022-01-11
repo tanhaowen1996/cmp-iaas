@@ -260,6 +260,10 @@ class Port(models.Model, OpenstackMixin):
     mac_address = MACAddressField(
         unique=True)
     is_external = models.BooleanField()
+    is_vip = models.BooleanField(default=False)
+    description = models.CharField(
+        blank=True,
+        max_length=1024)
     creater = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT)
@@ -298,6 +302,7 @@ class Port(models.Model, OpenstackMixin):
             network_id=self.network.os_network_id,
             fixed_ips=[fixed_ip],
             name=self.name,
+            description=self.description
         )
         self.id = self.os_port_id = os_port.id
         self.mac_address = os_port.mac_address
@@ -305,9 +310,9 @@ class Port(models.Model, OpenstackMixin):
         if not self.name:
             self.name = self.ip_address
 
-    def update_os_port(self, os_conn, name='', **kwargs):
-        os_conn.network.update_port(self.os_port_id, name=name)
-        self.name = name
+    def update_os_port(self, os_conn, name='', description='', **kwargs):
+        os_conn.network.update_port(
+            self.os_port_id, name=name, description=description)
 
     def destroy_os_port(self, os_conn):
         os_conn.network.delete_port(self.os_port_id, ignore_missing=False)
