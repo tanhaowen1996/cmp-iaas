@@ -248,7 +248,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            instance.save()
+            serializer.save()
             return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
