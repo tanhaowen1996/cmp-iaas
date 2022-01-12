@@ -76,7 +76,7 @@ class PortFilter(FilterSet):
 
     class Meta:
         model = Port
-        fields = ('network_id', 'ip_address', 'is_external')
+        fields = ('network_id', 'ip_address', 'is_external', 'is_vip')
         filter_overrides = {
             InetAddressField: {
                 'filter_class': CharFilter,
