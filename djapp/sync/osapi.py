@@ -69,6 +69,10 @@ _REGION_NAME = None
 
 def _session():
     global _SESSION
+
+    if _SESSION and not _SESSION.invalidate():
+        _SESSION = None
+
     if not _SESSION:
         _SESSION = _make_session_from_env()
     return _SESSION

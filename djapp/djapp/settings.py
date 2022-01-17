@@ -257,6 +257,9 @@ ACCOUNT_INFO_KEY = os.getenv('ACCOUNT_INFO_KEY', 'Account-Info')
 # RabbitMQ
 TRANSPORT_URL = os.getenv('TRANSPORT_URL', '')
 
+# UUM URL
+UUM_URL = os.getenv('UUM_URL', '')
+
 
 SWAGGER = bool(int(os.getenv('SWAGGER', 0)))
 
