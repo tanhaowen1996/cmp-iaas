@@ -15,7 +15,6 @@ class NotificationListener(object):
     def __init__(self):
         self.endpoints = [
             endpoints.InstanceEndpoint(),
-            endpoints.ImageEndpoint(),
             endpoints.VolumeEndpoint(),
             endpoints.NetworkEndpoint(),
         ]
@@ -45,5 +44,5 @@ class NotificationListener(object):
         LOG.info("Done!")
 
 
-def start_listener():
+def start_listen():
     NotificationListener().run()

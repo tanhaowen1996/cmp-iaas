@@ -84,8 +84,6 @@ def _convert_instance_from_os2db(db_obj, os_obj, user=None, project=None):
     if project:
         db_obj.tenant_id = project.get('tenantId')
         db_obj.tenant_name = project.get('tenantName')
-    else:
-        db_obj.tenant_id = None
 
     # db_obj.admin_password
 
@@ -220,3 +218,29 @@ def _do_sync_instance_ports(server_id):
                   update_db_fn=_update_instance_port,
                   remove_db_fn=_remove_instance_port)
 
+
+def db_get_instance(instance_id):
+    try:
+        return models.Instance.objects.get(pk=instance_id)
+    except models.Instance.DoesNotExist:
+        return None
+
+
+def sync_instance_by_id(instance_id):
+    db_obj = db_get_instance(instance_id)
+    if db_obj is None:
+        # Pass process newly info
+        LOG.warning("Could not found instance: %s info in db, pass sync it ..."
+                    % instance_id)
+        return
+
+    os_obj = base.nova_api().show_server(instance_id=instance_id)
+    if not os_obj:
+        # Remove untracked info
+        LOG.error("Unknown instance: %s in openstack, remove db object!" % instance_id)
+        db_obj.delete()
+        return
+
+    # Update existed info:
+    _convert_instance_from_os2db(db_obj, os_obj)
+    db_obj.save()

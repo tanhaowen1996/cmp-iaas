@@ -11,6 +11,7 @@ from novaclient import api_versions as nova_api_versions
 from glanceclient import client as glance_client
 from cinderclient import client as cinder_client
 from neutronclient.v2_0 import client as neutron_client
+from neutronclient.common import exceptions as neutron_exc
 
 
 NOVA_API_VERSION = "2.53"
@@ -127,6 +128,9 @@ class NovaAPI(object):
         # LOG.info('Fetch Server list...')
         return self.client.servers.list(detailed=True, search_opts=opts)
 
+    def show_server(self, instance_id):
+        return self.client.servers.get(instance_id)
+
     def get_server_interfaces(self, instance_id):
         return self.client.servers.interface_list(instance_id)
 
@@ -220,6 +224,9 @@ class CinderAPI(object):
         return self.client.volumes.list(detailed=True,
                                         search_opts=search_opts)
 
+    def show_volume(self, volume_id):
+        return self.client.volumes.get(volume_id)
+
     def get_volume_types(self):
         return self.client.volume_types.list()
 
@@ -251,6 +258,16 @@ class NeutronAPI(object):
             params['tenant_id'] = tenant_id
         return self.client.list_networks(**params).get('networks', [])
 
+    def show_network(self, network_id, expand_subnet=True, **params):
+        network = self.client.show_network(network_id, **params).get('network', {})
+        if expand_subnet:
+            try:
+                network['subnets'] = [self.show_subnet(sid)
+                                      for sid in network['subnets']]
+            except neutron_exc.NotFound:
+                pass
+        return network
+
     def get_subnets(self, tenant_id=None, network_id=None):
         params = {}
         if tenant_id:
@@ -259,7 +276,7 @@ class NeutronAPI(object):
             params['project_id'] = network_id
         return self.client.list_subnets(**params).get('subnets', [])
 
-    def get_subnet(self, subnet_id):
+    def show_subnet(self, subnet_id):
         return self.client.show_subnet(subnet_id).get('subnet', {})
 
     def get_ports(self, network_id=None):
@@ -267,6 +284,9 @@ class NeutronAPI(object):
         if network_id:
             params['network_id'] = network_id
         return self.client.list_ports(**params).get('ports', [])
+
+    def show_port(self, port_id, **params):
+        return self.client.show_port(port_id, **params).get('port', {})
 
 
 if __name__ == '__main__':

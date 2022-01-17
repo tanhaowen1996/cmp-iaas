@@ -148,7 +148,7 @@ def _convert_network_from_os2db(db_obj, os_obj, user, project):
 
     db_obj.os_subnet_id = subnets[0]
 
-    subnet = base.neutron_api().get_subnet(db_obj.os_subnet_id)
+    subnet = base.neutron_api().show_subnet(db_obj.os_subnet_id)
     cidr = subnet.get('cidr')
     if not cidr:
         raise base.SyncPass("CIDR is empty!")
@@ -221,4 +221,57 @@ def do_networks_sync(user, project):
                   update_db_fn=_update_network,
                   remove_db_fn=_remove_network)
 
+
+def db_get_port(port_id):
+    try:
+        return models.Port.objects.get(pk=port_id)
+    except models.Port.DoesNotExist:
+        return None
+
+
+def sync_port_by_id(port_id):
+    db_obj = db_get_port(port_id)
+    if db_obj is None:
+        # Pass process newly info
+        LOG.warning("Could not found port: %s info in db, pass sync it ..."
+                    % port_id)
+        return
+
+    os_obj = base.neutron_api().show_port(port_id=port_id)
+    if not os_obj:
+        # Remove untracked info
+        LOG.error("Unknown port: %s in openstack, remove db object!" % port_id)
+        db_obj.delete()
+        return
+
+    # Update existed info
+    _convert_port_from_os2db(db_obj, os_obj)
+    db_obj.save()
+
+
+def db_get_network(network_id):
+    try:
+        return models.Network.objects.get(pk=network_id)
+    except models.Network.DoesNotExist:
+        return None
+
+
+def sync_network_by_id(network_id):
+    db_obj = db_get_network(network_id)
+    if db_obj is None:
+        # Pass process newly info
+        LOG.warning("Could not found network: %s info in db, pass sync it ..."
+                    % network_id)
+        return
+
+    os_obj = base.neutron_api().show_network(network_id=network_id)
+    if not os_obj:
+        # Remove untracked info
+        LOG.error("Unknown network: %s in openstack, remove db object!" % network_id)
+        db_obj.delete()
+        return
+
+    # Update existed info
+    _convert_network_from_os2db(db_obj, os_obj)
+    db_obj.save()
 

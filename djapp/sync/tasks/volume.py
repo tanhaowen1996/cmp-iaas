@@ -134,3 +134,30 @@ def do_volumes_sync(user=None, project=None):
                   update_db_fn=_update_volume,
                   remove_db_fn=_remove_volume)
 
+
+def db_get_volume(volume_id):
+    try:
+        return models.Volume.objects.get(pk=volume_id)
+    except models.Volume.DoesNotExist:
+        return None
+
+
+def sync_volume_by_id(volume_id):
+    db_obj = db_get_volume(volume_id)
+    if db_obj is None:
+        # Pass process newly info
+        LOG.warning("Could not found volume: %s info in db, pass sync it ..."
+                    % volume_id)
+        return
+
+    os_obj = base.cinder_api().show_volume(volume_id=volume_id)
+    if not os_obj:
+        # Remove untracked info
+        LOG.error("Unknown volume: %s in openstack, remove db object!" % volume_id)
+        db_obj.delete()
+        return
+
+    # Update existed info
+    _convert_volume_from_os2db(db_obj, os_obj)
+    db_obj.save()
+

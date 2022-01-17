@@ -107,6 +107,11 @@ def do_tenants_sync():
 
     users = uumapi.user_list()
     for u in users:
+        user_id = u.get('userId')
+        user_name = u.get('userName')
+        if user_name is None:
+            LOG.warning("user: %s name is None, could not sync info..." % user_id)
+            continue
         # create or get tenant auth user
         _create_auth_user(u)
         # sync user resources
