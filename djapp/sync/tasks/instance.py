@@ -133,8 +133,9 @@ def do_instances_sync(user=None, project=None):
     def _remove_instance(db_obj):
         LOG.info("Remove unknown instance: %s" % db_obj.id)
         # remove instance ports db first
-        db_obj.cvmport_set.clear()
-        # _do_sync_instance_ports(db_obj.id)
+        instance_port_objects = models.InstancePort.objects.filter(server_id=db_obj.id)
+        for port_obj in instance_port_objects:
+            port_obj.delete()
         # remove instance db:
         db_obj.delete()
 

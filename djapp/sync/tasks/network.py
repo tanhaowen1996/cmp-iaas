@@ -168,7 +168,7 @@ def _convert_network_from_os2db(db_obj, os_obj, user, project):
     db_obj.creater_id = user.get('userId')
 
     # add project_id:
-    db_obj.project_id = project.get('id')
+    db_obj.project_id = os_obj.get('tenant_id')
 
     db_obj.created = os_obj.get('created_at')
     db_obj.modified = os_obj.get('updated_at')
@@ -178,8 +178,8 @@ def do_networks_sync(user, project):
     # user and project are required
     user_id, project_id = user.get('userId'), project.get('id')
     # filter by user_id and project_id
-    db_objects = models.Network.objects.filter(project_id=project_id)
-    os_objects = base.neutron_api().get_networks(tenant_id=project_id)
+    db_objects = models.Network.objects.filter()
+    os_objects = base.neutron_api().get_networks()
 
     LOG.info("Start to syncing Networks for user: %s to project: %s..."
              % (user_id, project_id))
@@ -187,7 +187,8 @@ def do_networks_sync(user, project):
     def _remove_network(db_obj):
         LOG.info("Remove unknown network: %s" % db_obj.id)
         # remove network ports first:
-        db_obj.port_set.clear()
+        for port_db_obj in db_obj.port_set.all():
+            port_db_obj.delete()
         # _do_network_ports_sync(db_obj.id, user, project)
         # remove network db:
         db_obj.delete()

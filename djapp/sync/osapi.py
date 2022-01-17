@@ -252,11 +252,11 @@ class NeutronAPI(object):
                                        insecure=insecure)
         return cls(client)
 
-    def get_networks(self, tenant_id=None):
+    def get_networks(self, retrieve_all=True, tenant_id=None):
         params = {}
         if tenant_id:
             params['tenant_id'] = tenant_id
-        return self.client.list_networks(**params).get('networks', [])
+        return self.client.list_networks(retrieve_all, **params).get('networks', [])
 
     def show_network(self, network_id, expand_subnet=True, **params):
         network = self.client.show_network(network_id, **params).get('network', {})

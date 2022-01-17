@@ -62,7 +62,7 @@ def do_admin_sync():
     image.do_images_sync(admin_user, admin_project)
 
     # sync networks: [global]
-    network.do_networks_sync(admin_user, admin_project)
+    network.do_networks_sync(admin_user, admin_user)
 
     # sync admin resources:
     _sync_user_project_resources(admin_user, admin_project)
