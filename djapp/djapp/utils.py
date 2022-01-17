@@ -2,9 +2,13 @@ from django.conf import settings
 from django.template import Context, Template
 from ncclient import manager, operations
 import openstack
+import logging
 
 
 openstack.enable_logging(debug=settings.DEBUG)
+
+
+logger = logging.getLogger(__package__)
 
 
 class OpenstackMixin:
@@ -25,6 +29,7 @@ class NetConf:
     timeout = 30
     device_name = 'h3c'
     is_allowed = True
+    any_network = 'Any'
 
     @classmethod
     def get_netconf_conn(cls):
@@ -37,6 +42,16 @@ class NetConf:
             look_for_keys=False,
             manager_params={'timeout': cls.timeout},
             device_params={'name': cls.device_name})
+
+    def edit_config(self, conn, xml):
+        try:
+            ret = conn.edit_config(target=self.target_running, config=xml)
+        except operations.rpc.RPCError as exc:
+            logger.error(f"netconf edit config:{xml}, result: {exc}")
+            return False, str(exc)
+        else:
+            logger.info(f"netconf edit config:{xml}, result: ok")
+            return ret.ok, ret.errors
 
 
 class FirewallMixin(NetConf):
@@ -62,8 +77,8 @@ class FirewallMixin(NetConf):
             raise Exception('no security policy ipv4 rules, please check device')
 
     def create_security_policy_rule(self, conn):
-        xml = f'''<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0">
-            <top xmlns="http://www.h3c.com/netconf/config:1.0" xc:operation="create">
+        xml = f'''<config xmlns:xc="{ self.xmlns_xc }">
+            <top xmlns="http://www.h3c.com/netconf/config:1.0" xc:operation="{ self.OPERATION_CREATE }">
                 <SecurityPolicies>
                     <IPv4Rules>
                         <Rule>
@@ -78,7 +93,7 @@ class FirewallMixin(NetConf):
                             <SeqNum>1</SeqNum>
                             <IsIncrement>true</IsIncrement>
                             <NameList>
-                                <NameItem>{ self.source_network.name }</NameItem>
+                                <NameItem>{ self.source_network.name if self.source_network else self.any_network }</NameItem>
                             </NameList>
                         </SrcSecZone>
                     </IPv4SrcSecZone>
@@ -95,23 +110,31 @@ class FirewallMixin(NetConf):
                 </SecurityPolicies>
             </top>
         </config>'''
-        ret = conn.edit_config(target=self.target_running, config=xml)
-        return (ret.ok, ret.errors)
+        return self.edit_security_policy_rule(conn, xml)
 
     def delete_security_policy_rule(self, conn):
         xml = f'''<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0">
             <top xmlns="http://www.h3c.com/netconf/config:1.0">
                 <SecurityPolicies>
                     <IPv4Rules>
-                        <Rule xc:operation="delete">
+                        <Rule xc:operation="{ self.OPERATION_DELETE }">
                             <ID>{ self.id }</ID>
                         </Rule>
                     </IPv4Rules>
                 </SecurityPolicies>
             </top>
         </config>'''
-        ret = conn.edit_config(target=self.target_running, config=xml)
-        return ret.ok, ret.errors
+        return self.edit_security_policy_rule(conn, xml)
+
+    def edit_security_policy_rule(self, conn, xml):
+        try:
+            ret = conn.edit_config(target=self.target_running, config=xml)
+        except operations.rpc.RPCError as exc:
+            logger.error(f"netconf edit config:{xml}, result: {exc}")
+            return False, str(exc)
+        else:
+            logger.info(f"netconf edit config:{xml}, result: ok")
+            return (ret.ok, ret.errors)
 
 
 class StaticRoutingNetConfMixin(NetConf):
@@ -138,23 +161,49 @@ class StaticRoutingNetConfMixin(NetConf):
 </config>''')
 
     def create_static_routing(self, conn):
-        return self.edit_static_routing(conn, self.OPERATION_CREATE)
-
-    def delete_static_routing(self, conn):
-        return self.edit_static_routing(conn, self.OPERATION_DELETE)
-
-    def edit_static_routing(self, conn, operation):
         xml = self.xml_template.render(Context({
             'cls': self.__class__,
-            'operation': operation,
+            'operation': self.OPERATION_CREATE,
             'obj_list': [self],
         }))
-        try:
-            ret = conn.edit_config(target=self.target_running, config=xml)
-        except operations.rpc.RPCError as exc:
-            return False, str(exc)
-        else:
-            return ret.ok, ret.errors
+        return self.edit_config(conn, xml)
+
+    def delete_static_routing(self, conn):
+        xml = self.xml_template.render(Context({
+            'cls': self.__class__,
+            'operation': self.OPERATION_DELETE,
+            'obj_list': [self],
+        }))
+        return self.edit_config(conn, xml)
+
+    def update_static_routing(self, conn, destination_subnet):
+        xml = f'''<config xmlns:xc="{ self.xmlns_xc }">
+            <StaticRoute xmlns="{ self.xmlns }">
+                <Ipv4StaticRouteConfigurations xc:operation="{ self.OPERATION_DELETE }">
+                    <RouteEntry>
+                        <DestVrfIndex>{ self.dest_vrf_index }</DestVrfIndex>
+                        <DestTopologyIndex>{ self.dest_topology_index }</DestTopologyIndex>
+                        <Ipv4Address>{ self.destination_subnet.network_address }</Ipv4Address>
+                        <Ipv4PrefixLength>{ self.destination_subnet.prefixlen }</Ipv4PrefixLength>
+                        <NexthopVrfIndex>{ self.next_hop_vrf_index }</NexthopVrfIndex>
+                        <NexthopIpv4Address>{ self.ip_next_hop_address.ip }</NexthopIpv4Address>
+                        <IfIndex>{ self.if_index }</IfIndex>
+                    </RouteEntry>
+                </Ipv4StaticRouteConfigurations>
+                <Ipv4StaticRouteConfigurations xc:operation="{ self.OPERATION_CREATE }">
+                    <RouteEntry>
+                        <DestVrfIndex>{ self.dest_vrf_index }</DestVrfIndex>
+                        <DestTopologyIndex>{ self.dest_topology_index }</DestTopologyIndex>
+                        <Ipv4Address>{ destination_subnet.network_address }</Ipv4Address>
+                        <Ipv4PrefixLength>{ destination_subnet.prefixlen }</Ipv4PrefixLength>
+                        <NexthopVrfIndex>{ self.next_hop_vrf_index }</NexthopVrfIndex>
+                        <NexthopIpv4Address>{ self.ip_next_hop_address.ip }</NexthopIpv4Address>
+                        <IfIndex>{ self.if_index }</IfIndex>
+                    </RouteEntry>
+                </Ipv4StaticRouteConfigurations>
+            </StaticRoute>
+        </config>'''
+        return self.edit_config(conn, xml)
 
     @classmethod
     def batch_create_static_routings(cls, conn, obj_list):
@@ -174,6 +223,8 @@ class StaticRoutingNetConfMixin(NetConf):
         try:
             ret = conn.edit_config(target=cls.target_running, config=xml)
         except operations.rpc.RPCError as exc:
+            logger.error(f"netconf edit config:{xml}, result: {exc}")
             return False, str(exc)
         else:
+            logger.info(f"netconf edit config:{xml}, result: ok")
             return ret.ok, ret.errors

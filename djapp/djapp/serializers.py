@@ -102,6 +102,8 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_external',
+            'is_vip',
+            'description',
             'server_name',
             'creater_name',
             'created',
@@ -128,12 +130,13 @@ class UpdatePortSerializer(serializers.ModelSerializer):
         model = Port
         fields = (
             'name',
+            'description',
         )
 
 
 class FirewallSerializer(serializers.ModelSerializer):
-    source_tenant = TenantSerializer()
-    source_network_id = serializers.UUIDField()
+    source_tenant = TenantSerializer(allow_null=True, required=False)
+    source_network_id = serializers.UUIDField(allow_null=True, required=False)
     destination_network_id = serializers.UUIDField()
 
     class Meta:
@@ -167,13 +170,18 @@ class FirewallSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        try:
-            source_network = Network.objects.get(id=data['source_network_id'])
-        except Network.DoesNotExist as exc:
-            raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
-        if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+        if data.get('source_tenant') and data.get('source_network_id'):
+            try:
+                source_network = Network.objects.get(id=data['source_network_id'])
+            except Network.DoesNotExist as exc:
+                raise serializers.ValidationError(f"source network id {data['source_network_id']}: {exc}")
+            if source_network.is_shared is False and data['source_tenant'] not in source_network.tenants:
+                raise serializers.ValidationError(
+                    f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+        elif bool(data.get('source_tenant')) is not bool(data.get('source_network_id')):
             raise serializers.ValidationError(
-                f"the source network {source_network} is not shared, and does not belong to source tenant {data['source_tenant']['name']}")
+                f"the source tenant or source network id is missing")
+
         return data
 
 
@@ -219,6 +227,28 @@ class StaticRoutingSerializer(serializers.ModelSerializer):
             data['ip_next_hop_address'] = IPv4Interface(data['ip_next_hop_address'])
 
         return data
+
+
+class StaticRoutingDestinationSubnetSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'cluster_code', 'ip_next_hop_address'
+        )
+
+
+class UpdateDestinationSubnetSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = StaticRouting
+        fields = (
+            'destination_subnet',
+        )
+
+    def save(self, **kwargs):
+        self.instance.update_routing(**self.validated_data)
+        return super().save(**kwargs)
 
 
 class SimpleStaticRoutingSerializer(serializers.ModelSerializer):
@@ -267,16 +297,9 @@ class BatchCreateStaticRoutingsSerializer(serializers.ModelSerializer):
         ) for routing in data['static_routings']]
 
 
-class BatchDestroyStaticRoutingsSerializer(serializers.ModelSerializer):
+class BatchDestroyStaticRoutingsSerializer(serializers.Serializer):
     cluster_code = serializers.CharField(required=False)
     ip_next_hop_address = IPAddressField(protocol='IPv4', required=False)
-
-    class Meta:
-        model = StaticRouting
-        fields = (
-            'cluster_code',
-            'ip_next_hop_address'
-        )
 
     def validate(self, data):
         data = super().validate(data)

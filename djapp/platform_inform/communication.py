@@ -1,6 +1,6 @@
 import json
 import requests
-from .utils import auth_url, auth_key, sms_email_header, sms_url, email_url
+from .utils import auth_url, auth_key, sms_email_header, sms_url, email_url, email_account, email_password
 
 
 class Communication:
@@ -24,7 +24,7 @@ class Communication:
             "subject": subject,
             "content": content,
             "to": to,
-            "account": "itwork@yonghui.cn",
-            "password": "l*rgV$K&eikhan3D",
+            "account": email_account,
+            "password": email_password,
         }
         requests.post(url=email_url, headers=email_auth_key, data=json.dumps(email_data))

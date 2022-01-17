@@ -11,6 +11,8 @@ from .serializers import (
     PortSerializer, UpdatePortSerializer,
     FirewallSerializer, FirewallPlatformSerializer,
     StaticRoutingSerializer,
+    StaticRoutingDestinationSubnetSerializer,
+    UpdateDestinationSubnetSerializer,
     BatchDestroyStaticRoutingsSerializer, BatchCreateStaticRoutingsSerializer,
     KeypairSerializer, ImageSerializer,
     VolumeSerializer, UpdateVolumeSerializer,
@@ -20,6 +22,7 @@ from .filters import (
     NetworkFilter, PortFilter,
     FirewallFilter, SimpleSourceTenantNetworkFilter, SimpleDestinationTenantNetworkFilter,
     StaticRoutingFilter, BatchDestroyStaticRoutingsFilter,
+    StaticRoutingDestinationSubnetFilter,
     KeypairFilter, ImageFilter, VolumeFilter, VolumeTypeFilter
 )
 from .models import (
@@ -63,6 +66,9 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     tenants:
     set related tenant list for instance
 
+    release:
+    remove current tenant from the tenant list of instance
+
     verbosity:
     Get instance detail info
     """
@@ -87,6 +93,21 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def release(self, request, pk=None):
+        instance = self.get_object()
+        if request.tenant in instance.tenants:
+            ports = instance.get_ports_by_tenant_id(request.tenant['id'])
+            if ports.exists():
+                return Response({
+                    "detail": f"{ ports } of servers are in use"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            instance.tenants.remove(request.tenant)
+            instance.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'])
     def verbosity(self, request, pk=None):
@@ -227,7 +248,7 @@ class PortViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
                 "detail": f"{exc}"
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
-            instance.save()
+            serializer.save()
             return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
@@ -248,7 +269,7 @@ class FirewallViewSet(mixins.CreateModelMixin,
                       mixins.DestroyModelMixin,
                       mixins.ListModelMixin,
                       viewsets.GenericViewSet):
-    authentication_classes = (OSAuthentication,)
+    authentication_classes = (AccountInfoAuthentication,)
     filterset_class = FirewallFilter
     queryset = Firewall.objects.all()
     serializer_class = FirewallSerializer
@@ -281,10 +302,8 @@ class FirewallViewSet(mixins.CreateModelMixin,
         else:
             instance.creater = request.user
             if not self.request.user.is_staff:
-                instance.destination_tenant = {
-                    'id': self.request.account_info.get('tenantId'),
-                    'name': self.request.account_info.get('tenantName'),
-                }
+                instance.destination_tenant = self.request.tenant
+
             instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
@@ -334,6 +353,31 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             instance.save(force_insert=True)
             return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        method='put',
+        query_serializer=StaticRoutingDestinationSubnetSerializer)
+    @action(detail=False, methods=['put'],
+            filterset_class=StaticRoutingDestinationSubnetFilter,
+            serializer_class=UpdateDestinationSubnetSerializer)
+    def update_destination_subnet(self, request, *args, **kwargs):
+        logger.info(f"start updating static routing")
+        queryset = self.filter_queryset(self.get_queryset())
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        instance = queryset.get()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save(creater=request.user)
+        except Exception as exc:
+            logger.error(f"try updating static routing: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            logger.info(f"finished updating static routing")
+            return Response(StaticRoutingSerializer(instance).data)
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         try:
@@ -349,6 +393,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
 
     @action(detail=False, methods=['post'], serializer_class=BatchCreateStaticRoutingsSerializer)
     def batch_create(self, request, *args, **kwargs):
+        logger.info(f"start batch creating static routing")
         serializer = self.get_serializer(
             data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
@@ -362,6 +407,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             instance_list = StaticRouting.objects.bulk_create(obj_list)
+            logger.info(f"finished batch creating static routing")
             return Response(StaticRoutingSerializer(
                 instance_list, many=True).data, status=status.HTTP_201_CREATED)
 
@@ -372,8 +418,11 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             serializer_class=BatchDestroyStaticRoutingsSerializer,
             filterset_class=BatchDestroyStaticRoutingsFilter)
     def batch_destroy(self, request, *args, **kwargs):
+        logger.info(f"start batch destroying static routing")
         self.get_serializer(data=request.query_params).is_valid(raise_exception=True)
         queryset = self.filter_queryset(self.get_queryset())
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
         try:
             StaticRouting.batch_destroy_static_routing_list(queryset)
         except Exception as exc:
@@ -383,6 +432,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             queryset.delete()
+            logger.info(f"finished batch destroying static routing")
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -664,7 +714,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if not self.request.user.is_staff:
-            qs = qs.filter(tenant_id=self.request.account_info['tenantId'])
+            qs = qs.filter(Q(tenant_id=self.request.account_info['tenantId']) & Q(is_bootable="False"))
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -777,30 +827,34 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
         page = self.paginate_queryset(queryset)
         if page is not None:
             for instance in page:
-                volume = instance.get_volume(request.os_conn)
-                if instance.status == volume.status:
-                    continue
-                if volume.attachments == []:
-                    serializer = UpdateVolumeSerializer(instance, data=volume)
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save(
-                        cluster_name=volume.host,
-                        attachments=volume.attachments,
-                        device=None,
-                        server_name=None,
-                        server_id=None,
-                    )
-                else:
-                    server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
-                    serializer = UpdateVolumeSerializer(instance, data=volume)
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save(
-                        cluster_name=volume.host,
-                        attachments=volume.attachments,
-                        device=volume.attachments[0].get('device'),
-                        server_name=server.name,
-                        server_id=volume.attachments[0].get('server_id'),
-                    )
+                try:
+                    volume = instance.get_volume(request.os_conn)
+                    if instance.status == volume.status:
+                        continue
+                    if volume.attachments == []:
+                        serializer = UpdateVolumeSerializer(instance, data=volume)
+                        serializer.is_valid(raise_exception=True)
+                        serializer.save(
+                            cluster_name=volume.host,
+                            attachments=volume.attachments,
+                            device=None,
+                            server_name=None,
+                            server_id=None,
+                        )
+                    else:
+                        server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
+                        serializer = UpdateVolumeSerializer(instance, data=volume)
+                        serializer.is_valid(raise_exception=True)
+                        serializer.save(
+                            cluster_name=volume.host,
+                            attachments=volume.attachments,
+                            device=volume.attachments[0].get('device'),
+                            server_name=server.name,
+                            server_id=volume.attachments[0].get('server_id'),
+                        )
+                except:
+                    self.perform_destroy(instance)
+                    print("ERROR: this volume deleted by cls")
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)

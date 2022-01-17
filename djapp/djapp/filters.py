@@ -16,6 +16,14 @@ from .models import (
 )
 
 
+address_field_filter = {
+    'filter_class': CharFilter,
+    'extra': lambda f: {
+        'lookup_expr': 'icontains',
+    },
+}
+
+
 class TenantIDFilter(Filter):
     field_class = forms.IntegerField
 
@@ -68,7 +76,7 @@ class PortFilter(FilterSet):
 
     class Meta:
         model = Port
-        fields = ('network_id', 'ip_address', 'is_external')
+        fields = ('network_id', 'ip_address', 'is_external', 'is_vip')
         filter_overrides = {
             InetAddressField: {
                 'filter_class': CharFilter,
@@ -105,6 +113,16 @@ class StaticRoutingFilter(FilterSet):
         filter_overrides = {
             InetAddressField: address_field_filter,
             CidrAddressField: address_field_filter
+        }
+
+
+class StaticRoutingDestinationSubnetFilter(FilterSet):
+
+    class Meta:
+        model = StaticRouting
+        fields = ('ip_next_hop_address', 'cluster_code')
+        filter_overrides = {
+            InetAddressField: address_field_filter,
         }
 
 

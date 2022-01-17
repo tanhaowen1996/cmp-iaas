@@ -1,12 +1,19 @@
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from djapp.authentication import OSAuthentication
+from djapp.permissions import IsAdmin
 from .filters import ResourceApplicationFilter
 from .models import ResourceApplication
 from .serializers import (
-    ResourceApplicationSerializer, ResourceApplicationConfirmationSerializer
+    ResourceApplicationSerializer,
+    ResourceApplicationConfirmationSerializer,
+    ResourceApplicationNetworkConfirmationSerializer
 )
+import logging
+
+
+logger = logging.getLogger(__package__)
 
 
 class ResourceApplicationViewSet(mixins.CreateModelMixin,
@@ -39,6 +46,22 @@ class ResourceApplicationViewSet(mixins.CreateModelMixin,
         serializer.is_valid(raise_exception=True)
         serializer.save(status=instance.STATUS_APPROVED, reason='')
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdmin],
+            serializer_class=ResourceApplicationNetworkConfirmationSerializer)
+    def approve_for_network(self, request, pk=None):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.save()
+        except Exception as exc:
+            logger.error(f"try handling resource application { instance.id }: {exc}")
+            return Response({
+                "detail": f"{exc}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(ResourceApplicationSerializer(instance).data)
 
     @action(detail=True, methods=['post'], serializer_class=ResourceApplicationConfirmationSerializer)
     def deny(self, request, pk=None):

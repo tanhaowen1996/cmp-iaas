@@ -16,3 +16,7 @@ auth_key = {
     "secretId": "2c2a03cd64fd48ff9c28e70e40361071",
     "secretKey": "1c92ac73943c49bfb1c0e0f351fe47ee"
     }
+
+email_account = "itwork@yonghui.cn"
+
+email_password = "l*rgV$K&eikhan3D"

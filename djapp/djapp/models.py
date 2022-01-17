@@ -106,6 +106,11 @@ class Network(models.Model, OpenstackMixin):
             'allocation_pools': subnet.allocation_pools
         }
 
+    def get_ports_by_tenant_id(self, tenant_id):
+        return Port.objects.filter(id__in=InstancePort.objects.filter(
+            server_id__in=Instance.objects.filter(tenant_id=tenant_id).values_list('id')
+        ).values_list('port_id'), network=self)
+
 
 class Firewall(FirewallMixin, models.Model):
     id = models.PositiveIntegerField(
@@ -117,10 +122,13 @@ class Firewall(FirewallMixin, models.Model):
         unique=True,
         verbose_name=_('rule name'))
     source_tenant = models.JSONField(
-        default=dict,
+        blank=True,
+        null=True,
         verbose_name=_('source tenant obj with id & name'))
     source_network = models.ForeignKey(
         Network,
+        blank=True,
+        null=True,
         related_name='source_network',
         on_delete=models.PROTECT,
         verbose_name=_('source network'))
@@ -196,7 +204,10 @@ class StaticRouting(StaticRoutingNetConfMixin, models.Model):
         verbose_name=_('created time'))
 
     class Meta:
-        unique_together = ('destination_subnet', 'ip_next_hop_address')
+        unique_together = (
+            ('cluster_code', 'ip_next_hop_address'),
+            ('destination_subnet', 'ip_next_hop_address')
+        )
 
     def create_routing(self):
         with self.get_netconf_conn() as conn:
@@ -207,6 +218,12 @@ class StaticRouting(StaticRoutingNetConfMixin, models.Model):
     def destroy_routing(self):
         with self.get_netconf_conn() as conn:
             deleted, errors = self.delete_static_routing(conn)
+            if errors:
+                raise Exception(errors)
+
+    def update_routing(self, destination_subnet=None):
+        with self.get_netconf_conn() as conn:
+            updated, errors = self.update_static_routing(conn, destination_subnet)
             if errors:
                 raise Exception(errors)
 
@@ -243,6 +260,10 @@ class Port(models.Model, OpenstackMixin):
     mac_address = MACAddressField(
         unique=True)
     is_external = models.BooleanField()
+    is_vip = models.BooleanField(default=False)
+    description = models.CharField(
+        blank=True,
+        max_length=1024)
     creater = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT)
@@ -281,6 +302,7 @@ class Port(models.Model, OpenstackMixin):
             network_id=self.network.os_network_id,
             fixed_ips=[fixed_ip],
             name=self.name,
+            description=self.description
         )
         self.id = self.os_port_id = os_port.id
         self.mac_address = os_port.mac_address
@@ -288,9 +310,9 @@ class Port(models.Model, OpenstackMixin):
         if not self.name:
             self.name = self.ip_address
 
-    def update_os_port(self, os_conn, name='', **kwargs):
-        os_conn.network.update_port(self.os_port_id, name=name)
-        self.name = name
+    def update_os_port(self, os_conn, name='', description='', **kwargs):
+        os_conn.network.update_port(
+            self.os_port_id, name=name, description=description)
 
     def destroy_os_port(self, os_conn):
         os_conn.network.delete_port(self.os_port_id, ignore_missing=False)

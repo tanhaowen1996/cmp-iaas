@@ -44,24 +44,14 @@ class InformViewSet(viewsets.ModelViewSet):
             res = requests.get(url=all_user_url, headers=all_user_header)
             user_info_all = json.loads(res.text)['data']['records']
             for user_info in user_info_all:
-                models.InformUser.objects.create(informs_id=serializer.data['id'],
-                                                 user_id=user_info['id'],
-                                                 name=user_info['accountName'],
-                                                 phone=user_info['phone'],
+                models.InformUser.objects.create(informs_id=serializer.data['id'], user_id=user_info['id'],
+                                                 name=user_info['accountName'], phone=user_info['phone'],
                                                  email=user_info['email'])
             if request.data['email_way'] == 1:
-                email_list = []
-                for user_info in user_info_all:
-                    if user_info['email'] is not None:
-                        email_list.append(user_info['email'])
+                email_list = Inform.post_email(user_info_all)
                 Communication().email(request.data['name'], request.data['details'], email_list)
             if request.data['sms_way'] == 1:
-                sms_list = []
-                for user_info in user_info_all:
-                    sms_dict = {}
-                    sms_dict['phoneNumber'] = user_info['phone']
-                    sms_dict['content'] = "(云业务)  " + request.data['name'] + ">>>" + request.data['details'] + '，回复TD退订'
-                    sms_list.append(sms_dict)
+                sms_list = Inform.post_sms(user_info_all, request)
                 Communication().sms(sms_list)
             return Response(serializer.data)
         elif request.data['inform_object_type'] == "租户":
@@ -88,17 +78,11 @@ class InformViewSet(viewsets.ModelViewSet):
                                                  name=user_info['accountName'], phone=user_info['phone'],
                                                  email=user_info['email'])
             if request.data['email_way'] == 1:
-                email_list = []
-                for user_info in request.data['inform_user']:
-                    if user_info['email'] is not None:
-                        email_list.append(user_info['email'])
+                email_list = Inform.post_email(request.data['inform_user'])
                 Communication().email(request.data['name'], request.data['details'], email_list)
             if request.data['sms_way'] == 1:
-                sms_list = []
-                for user_info in request.data['inform_user']:
-                    sms_dict = {}
-                    sms_dict['phoneNumber'] = user_info['phone']
-                    sms_dict['content'] = "(云业务)  "+request.data['name'] + ">>>" + request.data['details'] + '，回复TD退订'
-                    sms_list.append(sms_dict)
+                sms_list = Inform.post_sms(request.data['inform_user'], request)
                 Communication().sms(sms_list)
             return Response(serializer.data)
+        else:
+            return Response("Notify that the object type parameter is incorrect.")
