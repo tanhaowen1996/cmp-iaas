@@ -242,5 +242,5 @@ def sync_instance_by_id(instance_id):
         return
 
     # Update existed info:
-    _convert_instance_from_os2db(db_obj, os_obj)
+    _convert_instance_from_os2db(db_obj, os_obj.to_dict())
     db_obj.save()

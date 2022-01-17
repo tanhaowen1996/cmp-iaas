@@ -47,7 +47,7 @@ def _create_auth_user(user):
 def do_admin_sync():
     """Sync admin/global resources"""
     admin_user = _make_admin_user_info()
-    admin_projects = admin_user.get('projects', [])[0]
+    admin_project = admin_user.get('projects', [])[0]
 
     # create or get admin auth user
     _create_auth_user(admin_user)
@@ -59,10 +59,13 @@ def do_admin_sync():
     volume_type.do_volume_types_sync()
 
     # sync images: [global]
-    image.do_images_sync(admin_user, admin_projects)
+    image.do_images_sync(admin_user, admin_project)
 
     # sync networks: [global]
-    network.do_networks_sync(admin_user, admin_projects)
+    network.do_networks_sync(admin_user, admin_project)
+
+    # sync admin resources:
+    _sync_user_project_resources(admin_user, admin_project)
 
 
 def _sync_user_project_resources(user, project):

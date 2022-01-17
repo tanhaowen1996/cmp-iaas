@@ -158,6 +158,6 @@ def sync_volume_by_id(volume_id):
         return
 
     # Update existed info
-    _convert_volume_from_os2db(db_obj, os_obj)
+    _convert_volume_from_os2db(db_obj, os_obj.to_dict())
     db_obj.save()
 

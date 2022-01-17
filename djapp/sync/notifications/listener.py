@@ -23,6 +23,7 @@ class NotificationListener(object):
     def _get_transport():
         # Init oslo config
         cfg.CONF([])
+        LOG.info("TRANSPORT_URL: %s" % settings.TRANSPORT_URL)
         return oslo_messaging.get_notification_transport(
             cfg.CONF, url=settings.TRANSPORT_URL)
 

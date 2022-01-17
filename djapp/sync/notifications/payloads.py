@@ -34,7 +34,7 @@ class Payload(object):
 
         cls = _payload_register.get(name, None)
         if not cls:
-            msg = "Payload name: %s not registry, could not been process..." % name
+            msg = "Payload %s not registry, could not been process..." % payload_dict
             LOG.warning(msg)
             raise PayloadNotRegistryException(msg)
 

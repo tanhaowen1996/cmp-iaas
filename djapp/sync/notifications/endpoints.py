@@ -8,10 +8,13 @@ from sync.tasks import instance as instance_tasks
 from sync.tasks import network as network_tasks
 from sync.tasks import volume as volume_tasks
 
-from . import payloads
+# from . import payloads
 
 LOG = logging.getLogger(__name__)
 
+COMPUTE_INSTANCE_ACTION_NOTIFICATIONS = (
+
+)
 
 INSTANCE_ACTION_NOTIFICATIONS = (
     # 'instance.delete.start',
@@ -73,6 +76,25 @@ INSTANCE_ACTION_NOTIFICATIONS = (
     # 'instance.unshelve.end',
     'instance.lock',
     'instance.unlock',
+    'compute.instance.delete.end',
+    'compute.instance.pause.end',
+    'compute.instance.unpause.end',
+    'compute.instance.resize.end',
+    'compute.instance.resize.error',
+    'compute.instance.suspend.end',
+    'compute.instance.power_on.end',
+    'compute.instance.power_off.end',
+    'compute.instance.reboot.end',
+    'compute.instance.reboot.error',
+    'compute.instance.shutdown.end',
+    'compute.instance.restore.end',
+    'compute.instance.evacuate',
+    'compute.instance.resize_finish.end',
+    'compute.instance.resize_confirm.end',
+    'compute.instance.resize_revert.end',
+    'compute.instance.soft_delete.end',
+    'compute.instance.lock',
+    'compute.instance.unlock',
 )
 
 INSTANCE_ACTION_INTERFACE_NOTIFICATIONS = (
@@ -81,6 +103,13 @@ INSTANCE_ACTION_INTERFACE_NOTIFICATIONS = (
     'instance.interface_attach.error',
     # 'instance.interface_detach.start',
     'instance.interface_detach.end',
+    'compute.instance.interface_attach.end',
+    'compute.instance.interface_attach.error',
+    'compute.instance.interface_detach.end',
+)
+
+COMPUTE_INSTANCE_ACTION_VOLUME_NOTIFICATIONS = (
+
 )
 
 INSTANCE_ACTION_VOLUME_NOTIFICATIONS = (
@@ -89,36 +118,47 @@ INSTANCE_ACTION_VOLUME_NOTIFICATIONS = (
     'instance.volume_attach.error',
     # 'instance.volume_detach.start',
     'instance.volume_detach.end',
+    'compute.instance.volume_attach.end',
+    'compute.instance.volume_attach.error',
+    'compute.instance.volume_detach.end',
 )
 
 INSTANCE_CREATE_NOTIFICATIONS = (
     # 'instance.create.start',
     'instance.create.end',
     'instance.create.error',
+    'compute.instance.create.end',
+    'compute.instance.create.error',
 )
 
 INSTANCE_ACTION_RESIZE_PREP_NOTIFICATIONS = (
     'instance.resize_prep.start',
     'instance.resize_prep.end',
+    'compute.instance.resize_prep.start',
+    'compute.instance.resize_prep.end',
 )
 
 INSTANCE_ACTION_SNAPSHOT_NOTIFICATIONS = (
     'instance.snapshot.start',
     'instance.snapshot.end',
+    'compute.instance.snapshot.start',
+    'compute.instance.snapshot.end',
 )
 
 INSTANCE_EXISTS_NOTIFICATIONS = (
     'instance.exists',
+    'compute.instance.exists',
 )
 
 INSTANCE_UPDATE_NOTIFICATIONS = (
     'instance.update',
+    'compute.instance.update',
 )
 
 INSTANCE_NOTIFICATIONS = (
     *INSTANCE_ACTION_NOTIFICATIONS,
     *INSTANCE_CREATE_NOTIFICATIONS,
-    *INSTANCE_UPDATE_NOTIFICATIONS,
+    # *INSTANCE_UPDATE_NOTIFICATIONS,
     *INSTANCE_EXISTS_NOTIFICATIONS,
     *INSTANCE_ACTION_SNAPSHOT_NOTIFICATIONS,
     *INSTANCE_ACTION_RESIZE_PREP_NOTIFICATIONS,
@@ -182,6 +222,11 @@ class ImageEndpoint(NotificationEndpoint):
         pass
 
 
+class Payload(object):
+    def __init__(self, payload):
+        self.__dict__.update(**payload)
+
+
 class InstanceEndpoint(NotificationEndpoint):
     """Instance Notification Process Endpoint."""
 
@@ -192,19 +237,19 @@ class InstanceEndpoint(NotificationEndpoint):
 
     def process(self, publisher_id, event_type, payload):
         """Process Instance Notifications."""
-        payload = payloads.Payload.create(payload)
+        if event_type not in INSTANCE_NOTIFICATIONS:
+            LOG.warning('event_type: %s pass to process...' % event_type)
+            return
 
+        payload = Payload(payload)
         instance_id = payload.instance_id
         LOG.info("Start to process instance: %s notification: %s ..."
                  % (instance_id, event_type))
 
-        if event_type not in INSTANCE_NOTIFICATIONS:
-            LOG.warning('event_type: % pass to process...')
-            return
-
         if event_type in INSTANCE_ACTION_INTERFACE_NOTIFICATIONS:
             # update port
             for ip_address in payload.ip_addresses:
+                ip_address = Payload(ip_address)
                 network_tasks.sync_port_by_id(ip_address.port_id)
 
         if event_type in INSTANCE_ACTION_VOLUME_NOTIFICATIONS:
