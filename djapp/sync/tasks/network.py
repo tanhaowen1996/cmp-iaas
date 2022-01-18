@@ -1,6 +1,7 @@
 
 import logging
 
+from celery import shared_task
 from djapp import models
 
 from . import base
@@ -48,7 +49,10 @@ def _convert_port_from_os2db(db_obj, os_obj, user=None, project=None):
     # TODO: is_external set False
     db_obj.is_external = False
 
-    db_obj.creater_id = user.get('userId')
+    if user:
+        db_obj.creater_id = user.get('userId')
+    else:
+        db_obj.creater_id = -1
 
     db_obj.created = os_obj.get('created_at')
     db_obj.modified = os_obj.get('updated_at')
@@ -174,6 +178,11 @@ def _convert_network_from_os2db(db_obj, os_obj, user, project):
     db_obj.modified = os_obj.get('updated_at')
 
 
+def _clear_network_port(db_obj):
+    for port_db_obj in db_obj.port_set.all():
+        port_db_obj.delete()
+
+
 def do_networks_sync(user, project):
     # user and project are required
     user_id, project_id = user.get('userId'), project.get('id')
@@ -187,8 +196,7 @@ def do_networks_sync(user, project):
     def _remove_network(db_obj):
         LOG.info("Remove unknown network: %s" % db_obj.id)
         # remove network ports first:
-        for port_db_obj in db_obj.port_set.all():
-            port_db_obj.delete()
+        _clear_network_port(db_obj)
         # _do_network_ports_sync(db_obj.id, user, project)
         # remove network db:
         db_obj.delete()
@@ -230,26 +238,6 @@ def db_get_port(port_id):
         return None
 
 
-def sync_port_by_id(port_id):
-    db_obj = db_get_port(port_id)
-    if db_obj is None:
-        # Pass process newly info
-        LOG.warning("Could not found port: %s info in db, pass sync it ..."
-                    % port_id)
-        return
-
-    os_obj = base.neutron_api().show_port(port_id=port_id)
-    if not os_obj:
-        # Remove untracked info
-        LOG.error("Unknown port: %s in openstack, remove db object!" % port_id)
-        db_obj.delete()
-        return
-
-    # Update existed info
-    _convert_port_from_os2db(db_obj, os_obj)
-    db_obj.save()
-
-
 def db_get_network(network_id):
     try:
         return models.Network.objects.get(pk=network_id)
@@ -257,22 +245,106 @@ def db_get_network(network_id):
         return None
 
 
-def sync_network_by_id(network_id):
+@shared_task
+def sync_port_delete(port_id):
+    db_obj = db_get_port(port_id)
+    if db_obj is None:
+        LOG.warning("Could not found port %s in db, pass to update..."
+                    % port_id)
+        return
+
+    # delete port
+    db_obj.delete()
+
+
+@shared_task
+def sync_port_create(port_id):
+    db_obj = db_get_port(port_id)
+    if db_obj:
+        LOG.warning("Port %s already exist, pass to create..." % port_id)
+        return
+
+    os_obj = base.neutron_api().show_port(port_id=port_id)
+    if not os_obj:
+        LOG.error("Unknown port: %s in openstack..." % port_id)
+        return
+
+    # create port
+    db_obj = models.Port()
+    _convert_port_from_os2db(db_obj, os_obj)
+    db_obj.save()
+
+
+@shared_task
+def sync_port_update(port_id):
+    db_obj = db_get_port(port_id)
+    if db_obj is None:
+        LOG.warning("Could not found port %s in db, pass to update..."
+                    % port_id)
+        return
+
+    os_obj = base.neutron_api().show_port(port_id=port_id)
+    if not os_obj:
+        LOG.error("Unknown port: %s in openstack..." % port_id)
+        return
+
+    # Update existed info
+    _convert_port_from_os2db(db_obj, os_obj)
+    db_obj.save()
+
+
+@shared_task
+def sync_network_delete(network_id):
     db_obj = db_get_network(network_id)
     if db_obj is None:
-        # Pass process newly info
-        LOG.warning("Could not found network: %s info in db, pass sync it ..."
+        LOG.warning("Could not found network %s in db, pass to delete..."
+                    % network_id)
+        return
+
+    # clear network ports
+    _clear_network_port(db_obj)
+    # delete network
+    db_obj.delete()
+
+
+@shared_task
+def sync_network_create(network_id):
+    db_obj = db_get_network(network_id)
+    if db_obj:
+        LOG.warning("Network %s already exist, pass to create..."
                     % network_id)
         return
 
     os_obj = base.neutron_api().show_network(network_id=network_id)
     if not os_obj:
-        # Remove untracked info
-        LOG.error("Unknown network: %s in openstack, remove db object!" % network_id)
-        db_obj.delete()
+        LOG.error("Unknown network %s in openstack..." % network_id)
+        return
+
+    # create network
+    db_obj = models.Network()
+    _convert_network_from_os2db(db_obj, os_obj)
+    db_obj.save()
+
+    # sync network ports
+    _do_network_ports_sync(network_id)
+
+
+@shared_task
+def sync_network_update(network_id):
+    db_obj = db_get_network(network_id)
+    if db_obj is None:
+        LOG.warning("Could not found network %s in db, pass to update..."
+                    % network_id)
+        return
+
+    os_obj = base.neutron_api().show_network(network_id=network_id)
+    if not os_obj:
+        LOG.error("Unknown network %s in openstack..." % network_id)
         return
 
     # Update existed info
     _convert_network_from_os2db(db_obj, os_obj)
     db_obj.save()
 
+    # sync network ports
+    _do_network_ports_sync(network_id)

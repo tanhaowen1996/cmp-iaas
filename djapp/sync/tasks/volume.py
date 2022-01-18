@@ -2,6 +2,7 @@
 import logging
 
 from django.utils import timezone
+from celery import shared_task
 
 from djapp import models
 from sync import osapi
@@ -142,19 +143,49 @@ def db_get_volume(volume_id):
         return None
 
 
-def sync_volume_by_id(volume_id):
+@shared_task
+def sync_volume_delete(volume_id):
     db_obj = db_get_volume(volume_id)
-    if db_obj is None:
-        # Pass process newly info
-        LOG.warning("Could not found volume: %s info in db, pass sync it ..."
+    if not db_obj:
+        LOG.warning("Could not found volume %s in db, pass to delete..."
+                    % volume_id)
+        return
+
+    # delete volume
+    db_obj.delete()
+
+
+@shared_task
+def sync_volume_create(volume_id):
+    db_obj = db_get_volume(volume_id)
+    if db_obj:
+        LOG.warning("Volume %s already exist, pass to create..."
+                    % volume_id)
+        return
+
+    os_obj = base.cinder_api().show_volume(volume_id)
+    if not os_obj:
+        LOG.error("Unknown volume %s in openstack..." % volume_id)
+        return
+
+    # create volume
+    db_obj = models.Volume()
+    _convert_volume_from_os2db(db_obj, os_obj.to_dict())
+    db_obj.save()
+
+
+@shared_task
+def sync_volume_update(volume_id):
+    db_obj = db_get_volume(volume_id)
+    if not db_obj:
+        LOG.warning("Could not found volume %s in db, pass to update ..."
                     % volume_id)
         return
 
     os_obj = base.cinder_api().show_volume(volume_id=volume_id)
     if not os_obj:
         # Remove untracked info
-        LOG.error("Unknown volume: %s in openstack, remove db object!" % volume_id)
-        db_obj.delete()
+        LOG.error("Unknown volume: %s in openstack..." % volume_id)
         return
 
     # Update existed info

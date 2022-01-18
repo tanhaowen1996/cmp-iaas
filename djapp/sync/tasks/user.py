@@ -3,6 +3,8 @@ import logging
 
 from django.contrib.auth.models import User
 
+from celery import shared_task
+
 from sync import osapi
 from sync.uum import api as uumapi
 
@@ -119,3 +121,14 @@ def do_tenants_sync():
         _create_auth_user(u)
         # sync user resources
         _sync_user_resources(u)
+
+
+@shared_task
+def do_all_sync():
+    LOG.info("Start to sync global and admin resources...")
+    do_admin_sync()
+
+    LOG.info("Start to sync tenants' resources...")
+    do_tenants_sync()
+
+    LOG.info("Sync Done!")
