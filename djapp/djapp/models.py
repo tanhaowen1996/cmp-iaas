@@ -254,7 +254,7 @@ class Port(models.Model, OpenstackMixin):
         Network,
         on_delete=models.CASCADE)
     name = models.CharField(
-        max_length=20,
+        max_length=255,
         verbose_name=_('port name'))
     ip_address = InetAddressField()
     mac_address = MACAddressField(

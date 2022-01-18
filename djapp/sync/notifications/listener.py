@@ -15,7 +15,6 @@ class NotificationListener(object):
     def __init__(self):
         self.endpoints = [
             endpoints.InstanceEndpoint(),
-            endpoints.ImageEndpoint(),
             endpoints.VolumeEndpoint(),
             endpoints.NetworkEndpoint(),
         ]
@@ -24,6 +23,7 @@ class NotificationListener(object):
     def _get_transport():
         # Init oslo config
         cfg.CONF([])
+        LOG.info("TRANSPORT_URL: %s" % settings.TRANSPORT_URL)
         return oslo_messaging.get_notification_transport(
             cfg.CONF, url=settings.TRANSPORT_URL)
 
@@ -45,5 +45,5 @@ class NotificationListener(object):
         LOG.info("Done!")
 
 
-def start_listener():
+def start_listen():
     NotificationListener().run()

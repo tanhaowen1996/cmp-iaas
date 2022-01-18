@@ -2,7 +2,7 @@ import logging
 
 from django.core.management.base import BaseCommand
 
-from sync.rabbitmq import notifications
+from sync.notifications import listener
 
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(module)s.%(funcName)s %(message)s"
@@ -17,4 +17,4 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         LOG.info("Server starting ...")
         # waiting to receive notifications and process
-        notifications.start_listener()
+        listener.start_listen()
