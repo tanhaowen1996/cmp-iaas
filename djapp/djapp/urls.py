@@ -29,6 +29,8 @@ from message_board.views import TopicViewSet
 from operation_log.views import OperationLogViewSet
 from platform_inform.views import InformViewSet
 
+from sync.views import TaskViewSet
+
 router = SimpleRouter(trailing_slash=False)
 router.register(r'network', NetworkViewSet, basename='network')
 router.register(r'port', PortViewSet, basename='port')
@@ -43,6 +45,8 @@ router.register(r'operation', OperationLogViewSet, basename='operation')
 router.register(r'resource-application', ResourceApplicationViewSet, basename='resource_application')
 router.register(r'message-board', TopicViewSet, basename='message_board')
 router.register(r'platform-inform', InformViewSet, basename='platform_inform')
+
+router.register(r'task', TaskViewSet, basename='task')
 
 urlpatterns = [
     path('v2/', include(router.urls)),

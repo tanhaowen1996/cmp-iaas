@@ -3,8 +3,11 @@ import logging
 
 from django.contrib.auth.models import User
 
+from celery import shared_task
+
 from sync import osapi
-from sync.uum import api as uumapi
+from sync.uum import api as uum_api
+from sync import models
 
 from . import flavor
 from . import volume_type
@@ -44,6 +47,7 @@ def _create_auth_user(user):
         defaults={'username': user_name})
 
 
+@shared_task
 def do_admin_sync():
     """Sync admin/global resources"""
     admin_user = _make_admin_user_info()
@@ -59,10 +63,10 @@ def do_admin_sync():
     volume_type.do_volume_types_sync()
 
     # sync images: [global]
-    image.do_images_sync(admin_user, admin_project)
+    image.do_images_sync()
 
     # sync networks: [global]
-    network.do_networks_sync(admin_user, admin_user)
+    network.do_networks_sync()
 
     # sync admin resources:
     _sync_user_project_resources(admin_user, admin_project)
@@ -78,6 +82,20 @@ def _sync_user_project_resources(user, project):
     volume.do_volumes_sync(user, project)
 
 
+@shared_task
+def sync_user_projects_from_uum():
+    try:
+        users = uum_api.user_list()
+    except Exception as ex:
+        LOG.exception(ex)
+        return
+
+    # extract data to db
+    for user in users:
+        models.User.create_or_get(user)
+
+
+@shared_task
 def do_tenants_sync():
     """Sync uum mapped tenants resources"""
     synced_projects = set()
@@ -108,14 +126,28 @@ def do_tenants_sync():
             # record synced project
             synced_projects.add(project_id)
 
-    users = uumapi.user_list()
-    for u in users:
-        user_id = u.get('userId')
-        user_name = u.get('userName')
+    # sync from uum to db
+    sync_user_projects_from_uum()
+    # get all from db
+    users = models.User.all(to_dict=True)
+    for user in users:
+        user_id = user.get('userId')
+        user_name = user.get('userName')
         if user_name is None:
             LOG.warning("user: %s name is None, could not sync info..." % user_id)
             continue
         # create or get tenant auth user
-        _create_auth_user(u)
+        _create_auth_user(user)
         # sync user resources
-        _sync_user_resources(u)
+        _sync_user_resources(user)
+
+
+@shared_task
+def do_all_sync():
+    LOG.info("Start to sync global and admin resources...")
+    do_admin_sync.delay()
+
+    LOG.info("Start to sync tenants' resources...")
+    do_tenants_sync.delay()
+
+    LOG.info("Sync Done!")

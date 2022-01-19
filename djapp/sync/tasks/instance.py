@@ -1,6 +1,7 @@
 
 import logging
 
+from celery import shared_task
 from djapp import models
 from sync import osapi
 
@@ -89,13 +90,13 @@ def _convert_instance_from_os2db(db_obj, os_obj, user=None, project=None):
 
     user_id = os_obj.get('user_id')
     key_name = os_obj.get('key_name')
-
-    keypair = base.nova_api().get_user_keypair_by_name(
-        user_id=user_id, name=key_name)
-    if keypair:
-        db_obj.keypair_id = keypair.get('id')
-    else:
-        LOG.warning("Get keypair: %s for user: %s failed..." % (key_name, user_id))
+    if key_name:
+        keypair = base.nova_api().get_user_keypair_by_name(
+            user_id=user_id, name=key_name)
+        if keypair:
+            db_obj.keypair_id = keypair.get('id')
+        else:
+            LOG.warning("Get keypair: %s for user: %s failed..." % (key_name, user_id))
 
     db_obj.keypair_name = key_name
 
@@ -117,10 +118,16 @@ def _convert_instance_from_os2db(db_obj, os_obj, user=None, project=None):
     # // db_obj.creator_id
     # // db_obj.creator_name
     # db_obj.update_time = os_obj.get('updated')
-    db_obj.create_time = os_obj.get('created')
+    # db_obj.create_time = os_obj.get('created')
     db_obj.deleted = 0
 
 
+def _clear_instance_port_by_id(instance_id):
+    for port_obj in models.InstancePort.objects.filter(server_id=instance_id):
+        port_obj.delete()
+
+
+@shared_task
 def do_instances_sync(user=None, project=None):
     project_id = project.get('id') if project else osapi.get_project_id()
 
@@ -133,9 +140,7 @@ def do_instances_sync(user=None, project=None):
     def _remove_instance(db_obj):
         LOG.info("Remove unknown instance: %s" % db_obj.id)
         # remove instance ports db first
-        instance_port_objects = models.InstancePort.objects.filter(server_id=db_obj.id)
-        for port_obj in instance_port_objects:
-            port_obj.delete()
+        _clear_instance_port_by_id(db_obj.id)
         # remove instance db:
         db_obj.delete()
 
@@ -227,21 +232,52 @@ def db_get_instance(instance_id):
         return None
 
 
-def sync_instance_by_id(instance_id):
+@shared_task
+def sync_instance_delete(instance_id):
     db_obj = db_get_instance(instance_id)
-    if db_obj is None:
-        # Pass process newly info
-        LOG.warning("Could not found instance: %s info in db, pass sync it ..."
+    if not db_obj:
+        LOG.warning("Cloud not found instance %s in db, pass to delete..."
+                    % instance_id)
+        return
+    # clear instance port first
+    _clear_instance_port_by_id(instance_id)
+    # delete instance
+    db_obj.delete()
+
+
+@shared_task
+def sync_instance_create(instance_id):
+    db_obj = db_get_instance(instance_id)
+    if db_obj:
+        LOG.warning("Instance %s already exist, pass to create..."
                     % instance_id)
         return
 
     os_obj = base.nova_api().show_server(instance_id=instance_id)
     if not os_obj:
-        # Remove untracked info
-        LOG.error("Unknown instance: %s in openstack, remove db object!" % instance_id)
+        LOG.error("Unknown instance %s in openstack..." % instance_id)
+        return
+
+    # create instance
+    db_obj = models.Instance()
+    _convert_instance_from_os2db(db_obj, os_obj.to_dict())
+    db_obj.save()
+
+
+@shared_task
+def sync_instance_update(instance_id):
+    db_obj = db_get_instance(instance_id)
+    if not db_obj:
+        LOG.warning("Could not found instance %s in db, pass to update ..."
+                    % instance_id)
+        return
+
+    os_obj = base.nova_api().show_server(instance_id=instance_id)
+    if not os_obj:
+        LOG.error("Unknown instance %s in openstack, will remove residual db data..." % instance_id)
         db_obj.delete()
         return
 
-    # Update existed info:
+    # update instance
     _convert_instance_from_os2db(db_obj, os_obj.to_dict())
     db_obj.save()

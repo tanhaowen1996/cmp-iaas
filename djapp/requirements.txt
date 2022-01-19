@@ -22,3 +22,9 @@ python-cinderclient!=4.0.0,>=3.3.0 # Apache-2.0
 python-neutronclient>=6.7.0 # Apache-2.0
 python-glanceclient>=2.8.0 # Apache-2.0
 python-novaclient>=17.2.1 # Apache-2.0
+
+
+# celery
+celery
+django-celery-results
+# django-celery-beat

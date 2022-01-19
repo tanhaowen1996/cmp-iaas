@@ -10,6 +10,7 @@ from novaclient import client as nova_client
 from novaclient import api_versions as nova_api_versions
 from glanceclient import client as glance_client
 from cinderclient import client as cinder_client
+from cinderclient import exceptions as cinder_exc
 from neutronclient.v2_0 import client as neutron_client
 from neutronclient.common import exceptions as neutron_exc
 
@@ -21,6 +22,8 @@ nova_extensions = [ext for ext in
 
 GLANCE_API_VERSION = "2"
 VOLUME_API_VERSION = "3.0"
+
+DEFAULT_PAGE_SIZE = 100
 
 
 def _get_session(auth_url, username, password,
@@ -184,14 +187,16 @@ class GlanceAPI(object):
         return cls(client)
 
     def get_images(self):
-        return self.client.images.list()
+        kwargs = {
+            'page_size': DEFAULT_PAGE_SIZE,
+        }
+        return self.client.images.list(**kwargs)
 
     def get_image(self, image_id):
         try:
             return self.client.images.get(image_id)
-        except:
-            pass
-        return None
+        except Exception:
+            return None
 
 
 class CinderAPI(object):
@@ -225,7 +230,10 @@ class CinderAPI(object):
                                         search_opts=search_opts)
 
     def show_volume(self, volume_id):
-        return self.client.volumes.get(volume_id)
+        try:
+            return self.client.volumes.get(volume_id)
+        except cinder_exc.NotFound:
+            return None
 
     def get_volume_types(self):
         return self.client.volume_types.list()
@@ -277,7 +285,10 @@ class NeutronAPI(object):
         return self.client.list_subnets(**params).get('subnets', [])
 
     def show_subnet(self, subnet_id):
-        return self.client.show_subnet(subnet_id).get('subnet', {})
+        try:
+            return self.client.show_subnet(subnet_id).get('subnet', {})
+        except neutron_exc.NotFound:
+            return None
 
     def get_ports(self, network_id=None):
         params = {}
@@ -286,7 +297,10 @@ class NeutronAPI(object):
         return self.client.list_ports(**params).get('ports', [])
 
     def show_port(self, port_id, **params):
-        return self.client.show_port(port_id, **params).get('port', {})
+        try:
+            return self.client.show_port(port_id, **params).get('port', {})
+        except neutron_exc.NotFound:
+            return None
 
 
 if __name__ == '__main__':

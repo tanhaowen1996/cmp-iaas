@@ -1,6 +1,8 @@
 
 import logging
 
+from celery import shared_task
+
 from djapp import models
 from sync import osapi
 
@@ -69,16 +71,14 @@ def _convert_image_from_os2db(db_obj, os_obj, user=None, project=None):
         db_obj.tenant_name = project.get('tenantName')
 
 
-def do_images_sync(user=None, project=None):
+@shared_task
+def do_images_sync():
     """Sync db objects with openstack information."""
-    project_id = project.get('id') if project else osapi.get_project_id()
-    # filter by project_id
-    db_objects = models.Image.objects.filter(owner=project_id)
+    db_objects = models.Image.objects.all()
     os_objects = base.glance_api().get_images()
-    os_objects = [os_obj for os_obj in os_objects
-                  if os_obj.get('owner') == project_id]
+    os_objects = [os_obj for os_obj in os_objects]
 
-    LOG.info("Start to syncing Images of project: %s ..." % project_id)
+    LOG.info("Start to sync images ...")
 
     def _remove_image(db_obj):
         LOG.info("Remove Unknown Image: %s" % db_obj)
@@ -88,13 +88,13 @@ def do_images_sync(user=None, project=None):
         LOG.info("Create a new image: %s" % os_obj.get('id'))
         # create db obj:
         db_obj = models.Image()
-        _convert_image_from_os2db(db_obj, os_obj, user, project)
+        _convert_image_from_os2db(db_obj, os_obj)
         # save to db:
         db_obj.save()
 
     def _update_image(db_obj, os_obj):
         LOG.info("Update existed image: %s" % db_obj.id)
-        _convert_image_from_os2db(db_obj, os_obj, user, project)
+        _convert_image_from_os2db(db_obj, os_obj)
         # update to db:
         db_obj.save()
 
