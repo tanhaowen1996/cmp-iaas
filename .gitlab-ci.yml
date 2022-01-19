@@ -32,7 +32,9 @@ deploy-dev:
   stage: package
   script:
   - source /data/deploy/ci.sh
-  - deploy_dev
+  - deploy_dev_many cmp-iaas
+  - deploy_dev_many cmp-iaas-worker
+  - deploy_dev_many cmp-iaas-notification
   only:
   - master
   - dev
