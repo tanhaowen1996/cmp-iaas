@@ -7,6 +7,7 @@ from keystoneauth1.identity import v3 as v3_auth
 from keystoneauth1 import session as ks_session
 
 from novaclient import client as nova_client
+from novaclient import exceptions as nova_exc
 from novaclient import api_versions as nova_api_versions
 from glanceclient import client as glance_client
 from cinderclient import client as cinder_client
@@ -132,7 +133,10 @@ class NovaAPI(object):
         return self.client.servers.list(detailed=True, search_opts=opts)
 
     def show_server(self, instance_id):
-        return self.client.servers.get(instance_id)
+        try:
+            return self.client.servers.get(instance_id)
+        except nova_exc.NotFound:
+            return None
 
     def get_server_interfaces(self, instance_id):
         return self.client.servers.interface_list(instance_id)

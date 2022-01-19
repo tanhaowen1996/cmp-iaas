@@ -41,7 +41,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_yasg',
     'django_celery_results',
-    # 'django_celery_beat',
     'resource_application',
     'message_board',
     'operation_log',
