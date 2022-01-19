@@ -1,4 +1,5 @@
 import os
+import logging
 
 from celery import Celery
 
@@ -15,6 +16,9 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 
 # Load task modules from all registered Django apps.
 app.autodiscover_tasks()
+
+LOG_FORMAT = "%(asctime)s %(levelname)s %(module)s.%(funcName)s: %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 
 @app.task(bind=True)

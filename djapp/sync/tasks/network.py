@@ -9,7 +9,7 @@ from . import base
 LOG = logging.getLogger(__name__)
 
 
-def _convert_port_from_os2db(db_obj, os_obj, user=None, project=None):
+def _convert_port_from_os2db(db_obj, os_obj, creator_id=None):
     """OpenStack port dict:
     {
         'id': '0779769c-3420-42e7-aecc-3faa69c9d285',
@@ -49,8 +49,8 @@ def _convert_port_from_os2db(db_obj, os_obj, user=None, project=None):
     # TODO: is_external set False
     db_obj.is_external = False
 
-    if user:
-        db_obj.creater_id = user.get('userId')
+    if creator_id:
+        db_obj.creater_id = creator_id
     else:
         db_obj.creater_id = -1
 
@@ -58,7 +58,7 @@ def _convert_port_from_os2db(db_obj, os_obj, user=None, project=None):
     db_obj.modified = os_obj.get('updated_at')
 
 
-def _do_network_ports_sync(network_id, user=None, project=None):
+def _do_network_ports_sync(network_id, creator_id=None):
     db_objects = models.Port.objects.filter(network_id=network_id)
     os_objects = base.neutron_api().get_ports(network_id=network_id)
 
@@ -67,13 +67,13 @@ def _do_network_ports_sync(network_id, user=None, project=None):
     def _create_network_port(os_obj):
         LOG.info("Create a network: %s port: %s" % (network_id, os_obj.get('id')))
         db_obj = models.Port()
-        _convert_port_from_os2db(db_obj, os_obj, user, project)
+        _convert_port_from_os2db(db_obj, os_obj, creator_id)
         # save to db:
         db_obj.save()
 
     def _update_network_port(db_obj, os_obj):
         LOG.info("Update existed network: %s port: %s" % (network_id, db_obj.id))
-        _convert_port_from_os2db(db_obj, os_obj, user, project)
+        _convert_port_from_os2db(db_obj, os_obj, creator_id)
         # update to db:
         db_obj.save()
 
@@ -90,7 +90,7 @@ def _do_network_ports_sync(network_id, user=None, project=None):
                   remove_db_fn=_remove_network_port)
 
 
-def _convert_network_from_os2db(db_obj, os_obj, user, project):
+def _convert_network_from_os2db(db_obj, os_obj, creator_id=None):
     """OpenStack network dict:
     {
         'id': '275d3a55-bb1c-41a5-bc41-d1b286681e58',
@@ -169,7 +169,10 @@ def _convert_network_from_os2db(db_obj, os_obj, user, project):
     db_obj.vlan_id = os_obj.get('provider:segmentation_id')
     db_obj.is_shared = os_obj.get('shared')
 
-    db_obj.creater_id = user.get('userId')
+    if creator_id:
+        db_obj.creater_id = creator_id
+    else:
+        db_obj.creater_id = -1
 
     # add project_id:
     db_obj.project_id = os_obj.get('tenant_id')
@@ -183,44 +186,39 @@ def _clear_network_port(db_obj):
         port_db_obj.delete()
 
 
-def do_networks_sync(user, project):
-    # user and project are required
-    user_id, project_id = user.get('userId'), project.get('id')
+@shared_task
+def do_networks_sync(creator_id=None):
     # filter by user_id and project_id
     db_objects = models.Network.objects.filter()
     os_objects = base.neutron_api().get_networks()
 
-    LOG.info("Start to syncing Networks for user: %s to project: %s..."
-             % (user_id, project_id))
+    LOG.info("Start to sync all networks ...")
 
     def _remove_network(db_obj):
         LOG.info("Remove unknown network: %s" % db_obj.id)
         # remove network ports first:
         _clear_network_port(db_obj)
-        # _do_network_ports_sync(db_obj.id, user, project)
         # remove network db:
         db_obj.delete()
 
     def _create_network(os_obj):
         LOG.info("Create a new network: %s" % os_obj.get('id'))
         db_obj = models.Network()
-        _convert_network_from_os2db(db_obj, os_obj, user, project)
+        _convert_network_from_os2db(db_obj, os_obj, creator_id)
         # save to db:
         db_obj.save()
 
         # sync network ports:
-        _do_network_ports_sync(db_obj.id, user, project)
-        # NetworkSyncer._do_network_total_interface_sync(db_obj)
+        _do_network_ports_sync(db_obj.id, creator_id)
 
     def _update_network(db_obj, os_obj):
         LOG.info("Update existed network: %s" % db_obj.id)
-        _convert_network_from_os2db(db_obj, os_obj, user, project)
+        _convert_network_from_os2db(db_obj, os_obj, creator_id)
         # update to db:
         db_obj.save()
 
         # sync network ports:
-        _do_network_ports_sync(db_obj.id, user, project)
-        # NetworkSyncer._do_network_total_interface_sync(db_obj)
+        _do_network_ports_sync(db_obj.id, creator_id)
 
     base.alg_sync(db_objects=db_objects,
                   db_obj_key_fn=lambda obj: str(obj.id),
@@ -285,7 +283,8 @@ def sync_port_update(port_id):
 
     os_obj = base.neutron_api().show_port(port_id=port_id)
     if not os_obj:
-        LOG.error("Unknown port: %s in openstack..." % port_id)
+        LOG.error("Unknown port: %s in openstack, will remove residual db data..." % port_id)
+        db_obj.delete()
         return
 
     # Update existed info
@@ -339,7 +338,8 @@ def sync_network_update(network_id):
 
     os_obj = base.neutron_api().show_network(network_id=network_id)
     if not os_obj:
-        LOG.error("Unknown network %s in openstack..." % network_id)
+        LOG.error("Unknown network %s in openstack, will remove residual db data..." % network_id)
+        db_obj.delete()
         return
 
     # Update existed info

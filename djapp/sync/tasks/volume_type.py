@@ -1,8 +1,9 @@
 
 import logging
 
+from celery import shared_task
+
 from djapp import models
-from sync import osapi
 
 from . import base
 
@@ -29,6 +30,7 @@ def _convert_volume_type_from_os2db(db_obj, os_obj):
     # db_obj.updated_at
 
 
+@shared_task
 def do_volume_types_sync():
     db_objects = models.VolumeType.objects.all()
     os_objects = base.cinder_api().get_volume_types()

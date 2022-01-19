@@ -1,6 +1,8 @@
 
 import logging
 
+from celery import shared_task
+
 from djapp import models
 from sync import osapi
 
@@ -41,6 +43,7 @@ def _convert_keypair_from_os2_db(db_obj, os_obj, user=None, project=None):
     # updated_at
 
 
+@shared_task
 def do_key_pairs_sync(user=None, project=None):
     """Sync db objects with openstack information."""
     rel_user_id = user.get('relUserId') if user else osapi.get_user_id()

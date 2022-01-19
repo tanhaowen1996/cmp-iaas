@@ -98,6 +98,7 @@ def _convert_volume_from_os2db(db_obj, os_obj, user=None, project=None):
     db_obj.updated_at = timezone.now()
 
 
+@shared_task
 def do_volumes_sync(user=None, project=None):
     project_id = project.get('id') if project else osapi.get_project_id()
     # get project volumes:
@@ -185,7 +186,8 @@ def sync_volume_update(volume_id):
     os_obj = base.cinder_api().show_volume(volume_id=volume_id)
     if not os_obj:
         # Remove untracked info
-        LOG.error("Unknown volume: %s in openstack..." % volume_id)
+        LOG.error("Unknown volume: %s in openstack, will remove residual db data..." % volume_id)
+        db_obj.delete()
         return
 
     # Update existed info

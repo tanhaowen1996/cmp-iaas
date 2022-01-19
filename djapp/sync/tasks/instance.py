@@ -127,6 +127,7 @@ def _clear_instance_port_by_id(instance_id):
         port_obj.delete()
 
 
+@shared_task
 def do_instances_sync(user=None, project=None):
     project_id = project.get('id') if project else osapi.get_project_id()
 
@@ -273,7 +274,8 @@ def sync_instance_update(instance_id):
 
     os_obj = base.nova_api().show_server(instance_id=instance_id)
     if not os_obj:
-        LOG.error("Unknown instance %s in openstack..." % instance_id)
+        LOG.error("Unknown instance %s in openstack, will remove residual db data..." % instance_id)
+        db_obj.delete()
         return
 
     # update instance
