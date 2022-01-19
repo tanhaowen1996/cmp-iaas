@@ -16,11 +16,11 @@ from psycopg2.errors import OperationalError
 
 try:
     connect(
-        dbname="${DJANGO_POSTGRES_DATABASE}",
-        user="${DJANGO_POSTGRES_USER}",
-        password="${DJANGO_POSTGRES_PASSWORD}",
-        host="${DJANGO_POSTGRES_HOST}",
-        port="${DJANGO_POSTGRES_PORT}",
+        dbname="${DB_NAME}",
+        user="${DB_USER}",
+        password="${DB_PASSWORD}",
+        host="${DB_HOST}",
+        port="${DB_PORT}",
     )
 except OperationalError:
     sys.exit(-1)

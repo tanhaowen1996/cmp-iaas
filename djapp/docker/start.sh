@@ -8,7 +8,7 @@ cd /app
 
 
 if [ $# -eq 0 ]; then
-  echo "Usage: start.sh [PROCESS_TYPE](server/beat/worker)"
+  echo "Usage: start.sh [PROCESS_TYPE](server/worker/notification_listener)"
 else
   PROCESS_TYPE=$1
 fi
@@ -19,7 +19,7 @@ function start_server() {
     if [ "$DEBUG" = "1" ]; then
       python manage.py runserver 0.0.0.0:$WEB_PORT
     else
-      gunicorn cmp_iaas.asgi \
+      gunicorn djapp.asgi \
         -b :$WEB_PORT \
         -k uvicorn.workers.UvicornWorker \
         -w $WEB_CONCURRENCY \
@@ -27,21 +27,17 @@ function start_server() {
     fi
 }
 
-function start_beat() {
-  echo "Start celery beat ..."
+function start_notification_listener() {
+  echo "Start openstack notification listener ..."
 
-  celery \
-    --app cmp_iaas.celery_app \
-    beat \
-    --loglevel INFO \
-    --scheduler django_celery_beat.schedulers:DatabaseScheduler
+  python manage.py run_notification_listener
 }
 
 function start_worker() {
   echo "Start celery worker ..."
 
   celery \
-    --app cmp_iaas.celery_app \
+    --app djapp.celery_app \
     worker \
     --loglevel INFO
 }
@@ -49,14 +45,14 @@ function start_worker() {
 
 function main() {
   case "$PROCESS_TYPE" in
-    "beat")
-      start_beat
+    "notification_listener")
+      start_notification_listener
       ;;
     "worker")
       start_worker
       ;;
     *)
-      start_worker
+      start_server
       ;;
   esac
 }
