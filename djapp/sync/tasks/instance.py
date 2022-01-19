@@ -119,7 +119,7 @@ def _convert_instance_from_os2db(db_obj, os_obj, user=None, project=None):
     # // db_obj.creator_name
     # db_obj.update_time = os_obj.get('updated')
     # db_obj.create_time = os_obj.get('created')
-    db_obj.deleted = 0
+    db_obj.deleted = 1 if db_obj.status == 'DELETED' else 0
 
 
 def _clear_instance_port_by_id(instance_id):

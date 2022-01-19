@@ -40,7 +40,7 @@ class AccountInfoAuthentication(authentication.BaseAuthentication):
                 'id': account_info.get('tenantId'),
                 'name': account_info.get('tenantName')
             }
-            return (user, None)
+            return user, None
 
 
 class OSAuthentication(AccountInfoAuthentication):
@@ -69,4 +69,4 @@ class OSAuthentication(AccountInfoAuthentication):
             logger.error(msg)
             raise exceptions.AuthenticationFailed(msg)
         else:
-            return (user, None)
+            return user, None

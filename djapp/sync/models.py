@@ -123,7 +123,8 @@ class User(models.Model):
         # 1) clear before:
         db_obj.projects.clear()
         # 2) build new:
-        for project in uum_obj.get('projects', []):
+        projects = uum_obj.get('projects') or []
+        for project in projects:
             project_db = Project.create_or_get(project)
             project_db.save()
             db_obj.projects.add(project_db)
