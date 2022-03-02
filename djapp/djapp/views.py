@@ -131,7 +131,7 @@ class NetworkViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
     @action(detail=False, serializer_class=SimpleNetworkSerializer,
             filterset_class=SimpleDestinationTenantNetworkFilter)
     def destination_networks(self, request, pk=None):
-        qs = Network.objects.filter(is_shared=False)
+        qs = Network.objects.all()
         if not self.request.user.is_staff:
             qs = qs.filter(tenants__contains=[{'id': self.request.account_info['tenantId']}])
 
