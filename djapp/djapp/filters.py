@@ -43,7 +43,7 @@ class NetworkFilter(FilterSet):
         ('cidr', 'cidr asc'),
         ('-cidr', 'cidr desc'),
     ))
-    tenant_id = TenantIDFilter(field_name='tenants', method='filter_tenant', required=True)
+    tenant_id = TenantIDFilter(field_name='tenants', method='filter_tenant')
 
     class Meta:
         model = Network
