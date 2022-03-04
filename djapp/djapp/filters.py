@@ -43,10 +43,14 @@ class NetworkFilter(FilterSet):
         ('cidr', 'cidr asc'),
         ('-cidr', 'cidr desc'),
     ))
+    tenant_id = TenantIDFilter(field_name='tenants', method='filter_tenant', required=True)
 
     class Meta:
         model = Network
         fields = ('name',)
+    
+    def filter_tenant(self, queryset, value):
+        return queryset.filter(tenants__contains=[{'id': value}])
 
 
 class SimpleSourceTenantNetworkFilter(FilterSet):
