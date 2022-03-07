@@ -325,7 +325,7 @@ class StaticRoutingViewSet(mixins.CreateModelMixin,
                            mixins.DestroyModelMixin,
                            mixins.ListModelMixin,
                            viewsets.GenericViewSet):
-    authentication_classes = (AccountInfoAuthentication,)
+    authentication_classes = (OSAuthentication,)
     filterset_class = StaticRoutingFilter
     queryset = StaticRouting.objects.all()
     serializer_class = StaticRoutingSerializer
