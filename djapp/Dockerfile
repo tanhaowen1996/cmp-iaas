@@ -15,7 +15,7 @@ ENV TZ Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 RUN echo $TZ > /etc/timezone
 RUN sed -i -e 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
-RUN apt update && apt install -y locales tzdata
+RUN chmod 777 /tmp/ && apt update && apt install -y locales tzdata
 RUN dpkg-reconfigure -f noninteractive tzdata
 RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
