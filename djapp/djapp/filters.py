@@ -49,7 +49,7 @@ class NetworkFilter(FilterSet):
         model = Network
         fields = ('name',)
     
-    def filter_tenant(self, queryset, value):
+    def filter_tenant(self, queryset, name, value):
         return queryset.filter(tenants__contains=[{'id': value}])
 
 
