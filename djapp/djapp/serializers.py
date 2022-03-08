@@ -102,6 +102,7 @@ class PortSerializer(serializers.ModelSerializer):
             'ip_address',
             'mac_address',
             'is_vip',
+            'in_use',
             'description',
             'server_name',
             'creater_name',

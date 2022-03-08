@@ -52,6 +52,11 @@ def _convert_port_from_os2db(db_obj, os_obj, creator_id=None):
     else:
         db_obj.creater_id = -1
 
+    # device owner
+    db_obj.device_id = os_obj.get('device_id')
+    db_obj.device_owner = os_obj.get('device_owner')
+    db_obj.in_use = True if db_obj.device_id else False
+
     db_obj.created = os_obj.get('created_at')
     db_obj.modified = os_obj.get('updated_at')
 
