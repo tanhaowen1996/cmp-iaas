@@ -46,8 +46,6 @@ def _convert_port_from_os2db(db_obj, os_obj, creator_id=None):
     db_obj.name = os_obj.get('name')
     db_obj.ip_address = os_obj.get('fixed_ips', [])[0].get('ip_address')
     db_obj.mac_address = os_obj.get('mac_address')
-    # TODO: is_external set False
-    db_obj.is_external = False
 
     if creator_id:
         db_obj.creater_id = creator_id

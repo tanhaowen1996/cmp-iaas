@@ -15,7 +15,7 @@ class NetworkAdmin(admin.ModelAdmin):
 @admin.register(Port)
 class PortAdmin(admin.ModelAdmin):
     list_display = ('id', 'os_port_id',
-                    'network', 'ip_address', 'is_external',
+                    'network', 'ip_address',
                     'created', 'modified')
 
 
