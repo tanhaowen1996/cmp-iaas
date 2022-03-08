@@ -259,7 +259,7 @@ class Port(models.Model, OpenstackMixin):
     ip_address = InetAddressField()
     mac_address = MACAddressField(
         unique=True)
-    is_external = models.BooleanField()
+    # is_external = models.BooleanField()
     is_vip = models.BooleanField(default=False)
     description = models.CharField(
         blank=True,
