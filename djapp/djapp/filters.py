@@ -50,7 +50,7 @@ class NetworkFilter(FilterSet):
         fields = ('name',)
     
     def filter_tenant(self, queryset, name, value):
-        return queryset.filter(tenants__contains=[{'id': value}])
+        return queryset.filter(Q(is_shared=True) | Q(tenants__contains=[{'id': value}]))
 
 
 class SimpleSourceTenantNetworkFilter(FilterSet):
