@@ -147,9 +147,11 @@ class FirewallSerializer(serializers.ModelSerializer):
             'source_tenant',
             'source_network_id',
             'source_network_name',
+            'source_network_cidr',
             'destination_tenant',
             'destination_network_id',
             'destination_network_name',
+            'destination_network_cidr',
             'is_allowed',
         )
         read_only_fields = (
