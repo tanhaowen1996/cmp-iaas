@@ -86,7 +86,10 @@ def _convert_volume_from_os2db(db_obj, os_obj, user=None, project=None):
         db_obj.attach_status = 'attached'
 
         db_obj.server_id = attachment.get('server_id')
-        # db_obj.server_name
+
+        server = base.nova_api().show_server(db_obj.server_id)
+        if server:
+            db_obj.server_name = server.to_dict().get('name')
 
     else:
         db_obj.attach_status = 'detached'
