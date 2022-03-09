@@ -354,6 +354,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False),
     status = serializers.CharField(required=False),
     size = serializers.IntegerField(required=False),
     is_bootable = serializers.BooleanField(required=False),
@@ -370,13 +371,15 @@ class VolumeSerializer(serializers.ModelSerializer):
     tenant_id = serializers.CharField(required=False),
     tenant_name = serializers.CharField(required=False),
     host = serializers.CharField(required=False),
-    id = serializers.UUIDField(required=False)
+    id = serializers.UUIDField(required=False),
+    description = serializers.CharField(required=False)
 
     class Meta:
         model = Volume
         fields = (
             'id',
             'name',
+            'description',
             'volume_type',
             'size',
             'status',
