@@ -164,6 +164,14 @@ class Firewall(FirewallMixin, models.Model):
     @property
     def destination_network_name(self):
         return self.destination_network.name
+        
+    @property
+    def source_network_cidr(self):
+        return str(self.source_network.cidr)
+
+    @property
+    def destination_network_cidr(self):
+        return str(self.destination_network.cidr)
 
     def create_rule(self):
         with self.get_netconf_conn() as conn:
