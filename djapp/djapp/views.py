@@ -789,38 +789,38 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        try:
-            volume = instance.get_volume(request.os_conn)
-            if volume.attachments == []:
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                    device=None,
-                    server_name=None,
-                    server_id=None,
-                )
-            else:
-                server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                    device=volume.attachments[0].get('device'),
-                    server_name=server.name,
-                    server_id=volume.attachments[0].get('server_id'),
-                )
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-        except openstack.exceptions.HttpException as exc:
-            logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+    # def retrieve(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     try:
+    #         volume = instance.get_volume(request.os_conn)
+    #         if volume.attachments == []:
+    #             serializer = UpdateVolumeSerializer(instance, data=volume)
+    #             serializer.is_valid(raise_exception=True)
+    #             serializer.save(
+    #                 cluster_name=volume.host,
+    #                 attachments=volume.attachments,
+    #                 device=None,
+    #                 server_name=None,
+    #                 server_id=None,
+    #             )
+    #         else:
+    #             server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
+    #             serializer = UpdateVolumeSerializer(instance, data=volume)
+    #             serializer.is_valid(raise_exception=True)
+    #             serializer.save(
+    #                 cluster_name=volume.host,
+    #                 attachments=volume.attachments,
+    #                 device=volume.attachments[0].get('device'),
+    #                 server_name=server.name,
+    #                 server_id=volume.attachments[0].get('server_id'),
+    #             )
+    #         serializer = self.get_serializer(instance)
+    #         return Response(serializer.data)
+    #     except openstack.exceptions.HttpException as exc:
+    #         logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
+    #         return Response({
+    #             "detail": f"{exc}"
+    #         }, status=status.HTTP_400_BAD_REQUEST)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
