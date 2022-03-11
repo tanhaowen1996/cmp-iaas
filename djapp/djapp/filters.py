@@ -186,7 +186,10 @@ class VolumeFilter(FilterSet):
     user_name = CharFilter(field_name='user_name', lookup_expr='icontains')
     server_name = CharFilter(field_name='server_name', lookup_expr='icontains')
     server_id = CharFilter(field_name='server_id', lookup_expr='isnull')
+    tenant_id = CharFilter(field_name='tenant_id', lookup_expr='iexact')
     volume_type = CharFilter(field_name='volume_type', lookup_expr='exact')
+    volume_used = CharFilter(field_name='volume_used', lookup_expr='iexact')
+    status = CharFilter(field_name='status', lookup_expr='icontains')
     is_bootable = TypedChoiceFilter(
         choices=(('false', 'false'), ('true', 'true')),
         coerce=strtobool)
@@ -194,7 +197,7 @@ class VolumeFilter(FilterSet):
 
     class Meta:
         mode = Volume
-        filter = ('name', 'user_name', 'server_name', 'server_id', 'volume_type', 'is_bootable', 'status')
+        filter = ('name', 'user_name', 'server_name', 'server_id', 'tenant_id', 'volume_type', 'volume_used', 'is_bootable', 'status')
 
 
 class VolumeTypeFilter(FilterSet):
