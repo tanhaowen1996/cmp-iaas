@@ -26,6 +26,10 @@ address_field_filter = {
 
 class TenantIDFilter(Filter):
     field_class = forms.IntegerField
+    
+
+class TenantNameFilter(Filter):
+    field_class = forms.CharField
 
 
 class NetworkFilter(FilterSet):
@@ -95,6 +99,10 @@ class FirewallFilter(FilterSet):
     name = CharFilter(field_name='name', lookup_expr='icontains')
     source_tenant_id = TenantIDFilter(field_name='source_tenant__id')
     destination_tenant_id = TenantIDFilter(field_name='destination_tenant__id')
+    source_network_cidr = CharFilter(field_name='source_network__cidr', lookup_expr='icontains')
+    destination_network_cidr = CharFilter(field_name='destination_network__cidr', lookup_expr='icontains')
+    source_tenant = TenantNameFilter(field_name='source_tenant__name')
+    destination_tenant = TenantNameFilter(field_name='destination_tenant__name')
 
     class Meta:
         model = Firewall
