@@ -789,77 +789,77 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        try:
-            volume = instance.get_volume(request.os_conn)
-            if volume.attachments == []:
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                    device=None,
-                    server_name=None,
-                    server_id=None,
-                )
-            else:
-                server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
-                serializer = UpdateVolumeSerializer(instance, data=volume)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(
-                    cluster_name=volume.host,
-                    attachments=volume.attachments,
-                    device=volume.attachments[0].get('device'),
-                    server_name=server.name,
-                    server_id=volume.attachments[0].get('server_id'),
-                )
-            serializer = self.get_serializer(instance)
-            return Response(serializer.data)
-        except openstack.exceptions.HttpException as exc:
-            logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
-            return Response({
-                "detail": f"{exc}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+    # def retrieve(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     try:
+    #         volume = instance.get_volume(request.os_conn)
+    #         if volume.attachments == []:
+    #             serializer = UpdateVolumeSerializer(instance, data=volume)
+    #             serializer.is_valid(raise_exception=True)
+    #             serializer.save(
+    #                 cluster_name=volume.host,
+    #                 attachments=volume.attachments,
+    #                 device=None,
+    #                 server_name=None,
+    #                 server_id=None,
+    #             )
+    #         else:
+    #             server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
+    #             serializer = UpdateVolumeSerializer(instance, data=volume)
+    #             serializer.is_valid(raise_exception=True)
+    #             serializer.save(
+    #                 cluster_name=volume.host,
+    #                 attachments=volume.attachments,
+    #                 device=volume.attachments[0].get('device'),
+    #                 server_name=server.name,
+    #                 server_id=volume.attachments[0].get('server_id'),
+    #             )
+    #         serializer = self.get_serializer(instance)
+    #         return Response(serializer.data)
+    #     except openstack.exceptions.HttpException as exc:
+    #         logger.error(f"try get openstack ssh volume list filed {instance.name}:{exc}")
+    #         return Response({
+    #             "detail": f"{exc}"
+    #         }, status=status.HTTP_400_BAD_REQUEST)
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            for instance in page:
-                try:
-                    volume = instance.get_volume(request.os_conn)
-                    if instance.status == volume.status:
-                        continue
-                    if volume.attachments == []:
-                        serializer = UpdateVolumeSerializer(instance, data=volume)
-                        serializer.is_valid(raise_exception=True)
-                        serializer.save(
-                            cluster_name=volume.host,
-                            attachments=volume.attachments,
-                            device=None,
-                            server_name=None,
-                            server_id=None,
-                        )
-                    else:
-                        server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
-                        serializer = UpdateVolumeSerializer(instance, data=volume)
-                        serializer.is_valid(raise_exception=True)
-                        serializer.save(
-                            cluster_name=volume.host,
-                            attachments=volume.attachments,
-                            device=volume.attachments[0].get('device'),
-                            server_name=server.name,
-                            server_id=volume.attachments[0].get('server_id'),
-                        )
-                except:
-                    self.perform_destroy(instance)
-                    print("ERROR: this volume deleted by cls")
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # def list(self, request, *args, **kwargs):
+    #     queryset = self.filter_queryset(self.get_queryset())
+    #
+    #     page = self.paginate_queryset(queryset)
+    #     if page is not None:
+    #         for instance in page:
+    #             try:
+    #                 volume = instance.get_volume(request.os_conn)
+    #                 if instance.status == volume.status:
+    #                     continue
+    #                 if volume.attachments == []:
+    #                     serializer = UpdateVolumeSerializer(instance, data=volume)
+    #                     serializer.is_valid(raise_exception=True)
+    #                     serializer.save(
+    #                         cluster_name=volume.host,
+    #                         attachments=volume.attachments,
+    #                         device=None,
+    #                         server_name=None,
+    #                         server_id=None,
+    #                     )
+    #                 else:
+    #                     server = instance.get_server(request.os_conn, volume.attachments[0].get('server_id'))
+    #                     serializer = UpdateVolumeSerializer(instance, data=volume)
+    #                     serializer.is_valid(raise_exception=True)
+    #                     serializer.save(
+    #                         cluster_name=volume.host,
+    #                         attachments=volume.attachments,
+    #                         device=volume.attachments[0].get('device'),
+    #                         server_name=server.name,
+    #                         server_id=volume.attachments[0].get('server_id'),
+    #                     )
+    #             except:
+    #                 self.perform_destroy(instance)
+    #                 print("ERROR: this volume deleted by cls")
+    #         serializer = self.get_serializer(page, many=True)
+    #         return self.get_paginated_response(serializer.data)
+    #     serializer = self.get_serializer(queryset, many=True)
+    #     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def attached(self, request, *args, **kwargs):

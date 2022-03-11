@@ -164,6 +164,14 @@ class Firewall(FirewallMixin, models.Model):
     @property
     def destination_network_name(self):
         return self.destination_network.name
+        
+    @property
+    def source_network_cidr(self):
+        return str(self.source_network.cidr)
+
+    @property
+    def destination_network_cidr(self):
+        return str(self.destination_network.cidr)
 
     def create_rule(self):
         with self.get_netconf_conn() as conn:
@@ -259,11 +267,20 @@ class Port(models.Model, OpenstackMixin):
     ip_address = InetAddressField()
     mac_address = MACAddressField(
         unique=True)
-    is_external = models.BooleanField()
+    # is_external = models.BooleanField()
     is_vip = models.BooleanField(default=False)
     description = models.CharField(
         blank=True,
         max_length=1024)
+
+    device_id = models.CharField(
+        max_length=255,
+        null=True)
+    device_owner = models.CharField(
+        max_length=255,
+        null=True)
+    in_use = models.BooleanField(default=False)
+
     creater = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT)

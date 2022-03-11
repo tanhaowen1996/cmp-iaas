@@ -49,8 +49,8 @@ class NetworkFilter(FilterSet):
         model = Network
         fields = ('name',)
     
-    def filter_tenant(self, queryset, value):
-        return queryset.filter(tenants__contains=[{'id': value}])
+    def filter_tenant(self, queryset, name, value):
+        return queryset.filter(Q(is_shared=True) | Q(tenants__contains=[{'id': value}]))
 
 
 class SimpleSourceTenantNetworkFilter(FilterSet):
@@ -80,7 +80,7 @@ class PortFilter(FilterSet):
 
     class Meta:
         model = Port
-        fields = ('network_id', 'ip_address', 'is_external', 'is_vip')
+        fields = ('network_id', 'ip_address', 'is_vip', 'in_use')
         filter_overrides = {
             InetAddressField: {
                 'filter_class': CharFilter,

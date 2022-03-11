@@ -101,8 +101,8 @@ class PortSerializer(serializers.ModelSerializer):
             'network_name',
             'ip_address',
             'mac_address',
-            'is_external',
             'is_vip',
+            'in_use',
             'description',
             'server_name',
             'creater_name',
@@ -147,9 +147,11 @@ class FirewallSerializer(serializers.ModelSerializer):
             'source_tenant',
             'source_network_id',
             'source_network_name',
+            'source_network_cidr',
             'destination_tenant',
             'destination_network_id',
             'destination_network_name',
+            'destination_network_cidr',
             'is_allowed',
         )
         read_only_fields = (
@@ -354,6 +356,7 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class VolumeSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(required=False),
     status = serializers.CharField(required=False),
     size = serializers.IntegerField(required=False),
     is_bootable = serializers.BooleanField(required=False),
@@ -370,13 +373,15 @@ class VolumeSerializer(serializers.ModelSerializer):
     tenant_id = serializers.CharField(required=False),
     tenant_name = serializers.CharField(required=False),
     host = serializers.CharField(required=False),
-    id = serializers.UUIDField(required=False)
+    id = serializers.UUIDField(required=False),
+    description = serializers.CharField(required=False)
 
     class Meta:
         model = Volume
         fields = (
             'id',
             'name',
+            'description',
             'volume_type',
             'size',
             'status',

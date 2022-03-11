@@ -43,16 +43,19 @@ def _convert_port_from_os2db(db_obj, os_obj, creator_id=None):
     db_obj.os_port_id = os_obj.get('id')
     # network -> TODO: network may need exist first!
     db_obj.network_id = os_obj.get('network_id')
-    db_obj.name = os_obj.get('name')
+    db_obj.name = os_obj.get('name') or db_obj.id
     db_obj.ip_address = os_obj.get('fixed_ips', [])[0].get('ip_address')
     db_obj.mac_address = os_obj.get('mac_address')
-    # TODO: is_external set False
-    db_obj.is_external = False
 
     if creator_id:
         db_obj.creater_id = creator_id
     else:
         db_obj.creater_id = -1
+
+    # device owner
+    db_obj.device_id = os_obj.get('device_id')
+    db_obj.device_owner = os_obj.get('device_owner')
+    db_obj.in_use = True if db_obj.device_id else False
 
     db_obj.created = os_obj.get('created_at')
     db_obj.modified = os_obj.get('updated_at')
