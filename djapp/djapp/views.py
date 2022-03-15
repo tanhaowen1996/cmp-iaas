@@ -772,7 +772,7 @@ class VolumeViewSet(OSCommonModelMixin, viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         else:
             self.perform_destroy(instance)
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({"detail": "删除成功"}, status=status.HTTP_204_NO_CONTENT)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
