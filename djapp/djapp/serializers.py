@@ -314,13 +314,13 @@ class BatchDestroyStaticRoutingsSerializer(serializers.Serializer):
 
 class KeypairSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
-    name = serializers.CharField(max_length=255)
-    user_id = serializers.CharField(required=False)
-    fingerprint = serializers.CharField(required=False)
-    public_key = serializers.FileField(required=False)
-    project_id = serializers.UUIDField(required=False)
-    user_name = serializers.CharField(required=False)
-    tenant_id = serializers.CharField(required=False)
+    name = serializers.CharField(max_length=255),
+    user_id = serializers.CharField(required=False),
+    fingerprint = serializers.CharField(required=False),
+    public_key = serializers.FileField(required=False),
+    project_id = serializers.UUIDField(required=False),
+    user_name = serializers.CharField(required=False),
+    tenant_id = serializers.CharField(required=False),
     tenant_name = serializers.CharField(required=False)
     ssh = 'ssh'
     x509 = 'x509'
@@ -328,7 +328,7 @@ class KeypairSerializer(serializers.ModelSerializer):
         (ssh, 'ssh'),
         (x509, 'x509')
     ]
-    type = serializers.ChoiceField(choices=type_list, default=ssh)
+    type = serializers.ChoiceField(choices=type_list, default=ssh),
     description = serializers.CharField(required=False)
 
     class Meta:
