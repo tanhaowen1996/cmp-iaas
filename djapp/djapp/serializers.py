@@ -402,6 +402,7 @@ class VolumeSerializer(serializers.ModelSerializer):
 
 
 class UpdateVolumeSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(required=False)
 
     class Meta:
         model = Volume
