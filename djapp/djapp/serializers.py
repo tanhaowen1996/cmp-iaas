@@ -374,7 +374,7 @@ class VolumeSerializer(serializers.ModelSerializer):
     volume_type = serializers.CharField(required=False)
     tenant_id = serializers.CharField(required=False)
     tenant_name = serializers.CharField(required=False)
-    description = serializers.CharField(required=False)
+    # description = serializers.CharField(required=False)
 
     class Meta:
         model = Volume
@@ -402,7 +402,6 @@ class VolumeSerializer(serializers.ModelSerializer):
 
 
 class UpdateVolumeSerializer(serializers.ModelSerializer):
-    description = serializers.CharField(required=False)
 
     class Meta:
         model = Volume
